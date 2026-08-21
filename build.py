@@ -2,8 +2,12 @@
 # -*- coding: utf-8 -*-
 """Bygger en enda fristaende HTML-fil av src/.
 
-  python build.py            -> dist/IFC Optimizer v1.html
-  python build.py --install  -> kopierar aven till OneDrive-mappen
+  python build.py            -> index.html (samma fil som GitHub Pages visar)
+  python build.py --install  -> kopierar dessutom till mappen i install-dir.txt
+                                under namnet "IFC Optimizer v1.html"
+
+Byggd fil hamnar i repots rot som index.html sa att Pages kan visa den pa
+en ren URL. Det finns alltsa bara en byggd fil att halla reda pa.
 
 Motorn (src/engine/*.js i namnordning) bakas in i ett script-block som
 laddas som webbarbetare via Blob-URL. Ingenting hamtas fran natet utom
@@ -13,12 +17,18 @@ import io, os, re, sys, glob, shutil, datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(ROOT, 'src')
-DIST = os.path.join(ROOT, 'dist')
-NAME = 'IFC Optimizer v1.html'
-# Dit --install kopierar. Kan pekas om med IFC_OPT_INSTALL_DIR.
-INSTALL_DIR = os.environ.get('IFC_OPT_INSTALL_DIR') or os.path.join(
-    os.path.expanduser('~'), 'OneDrive - bimengine.se', 'BIM ENGINE - General',
-    'BIM EngineAi', '000 - Under Utveckling', '005 - IFC Optimizer')
+OUT_NAME = 'index.html'
+INSTALL_NAME = 'IFC Optimizer v1.html'
+def install_dir():
+    """Dit --install kopierar: IFC_OPT_INSTALL_DIR, annars raden i
+    install-dir.txt (lokal fil, ingar inte i repot)."""
+    v = os.environ.get('IFC_OPT_INSTALL_DIR')
+    if v:
+        return v.strip()
+    p = os.path.join(ROOT, 'install-dir.txt')
+    if os.path.exists(p):
+        return io.open(p, encoding='utf-8').read().strip()
+    return None
 
 def read(p):
     return io.open(p, encoding='utf-8').read()
@@ -52,17 +62,20 @@ def main():
     if re.search(r'</\s*script', engine, re.I) or re.search(r'</\s*script', app, re.I):
         raise SystemExit('koden innehaller </script> vilket bryter inbakningen')
 
-    if not os.path.isdir(DIST):
-        os.makedirs(DIST)
-    out = os.path.join(DIST, NAME)
+    out = os.path.join(ROOT, OUT_NAME)
     io.open(out, 'w', encoding='utf-8', newline='\n').write(html)
     print('%s  (%.1f kB, motor %d filer / %.1f kB)'
           % (out, os.path.getsize(out) / 1024.0, len(engine_files), len(engine) / 1024.0))
 
     if '--install' in sys.argv:
-        if not os.path.isdir(INSTALL_DIR):
-            os.makedirs(INSTALL_DIR)
-        dst = os.path.join(INSTALL_DIR, NAME)
+        target = install_dir()
+        if not target:
+            print('--install: satt IFC_OPT_INSTALL_DIR eller skapa install-dir.txt '
+                  'med sokvagen dit filen ska kopieras')
+            return
+        if not os.path.isdir(target):
+            os.makedirs(target)
+        dst = os.path.join(target, INSTALL_NAME)
         shutil.copyfile(out, dst)
         print('kopierad till %s' % dst)
 

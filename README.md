@@ -1,16 +1,30 @@
 # IFC Optimizer — BIM Engine
 
 Krymper IFC-filer utan att förstöra modellen. Allt arbete sker lokalt i
-webbläsaren — inga filer laddas upp någonstans, vilket är hela poängen
-jämfört med webbtjänster som bimcamel.com.
+webbläsaren — **ingen modell laddas upp någonstans**, vilket är hela poängen
+jämfört med webbtjänster som bimcamel.com. Filen du hämtar är ett enda
+fristående HTML-dokument utan beroenden.
 
-Källan bor här (`C:\Dev\jobb\IFC Optimizer`). Den färdiga filen är
-`dist/IFC Optimizer v1.html` och den byggs av `build.py`. Redigera **aldrig**
-den byggda filen direkt.
+## Kör den
+
+**→ [adrianduveholtbe.github.io/ifc-optimizer](https://adrianduveholtbe.github.io/ifc-optimizer/)**
+
+Sidan är bara ett skal — dina filer läses av webbläsaren på din egen dator och
+skickas aldrig till någon server. Vill du köra den helt utan nät: högerklicka
+och spara sidan, eller klona repot och öppna `index.html`. Öppnad direkt från
+disk kör motorn i huvudtråden i stället för i en bakgrundstråd (Chrome tillåter
+inte `new Worker(blob:)` från `file://`), så gränssnittet står stilla medan en
+stor modell arbetas igenom. Via en URL eller `tools/devserver.py` slipper du det.
+
+## Bygga
+
+`index.html` är genererad — **redigera den aldrig direkt**, all källkod ligger i
+`src/`.
 
 ```bash
-python build.py             # -> dist/IFC Optimizer v1.html
-python build.py --install   # kopierar dessutom till OneDrive-mappen
+python build.py             # -> index.html
+python build.py --install   # kopierar dessutom till en intern mapp,
+                            # styrs av IFC_OPT_INSTALL_DIR
 ```
 
 ## Vad verktyget gör
@@ -103,5 +117,12 @@ in i det här repot.
   användbar för kundmodeller.
 * [youshengCode/IfcToolbox](https://github.com/youshengCode/IfcToolbox) (GPL-3.0,
   C#/Xbim) — dess optimizer gör FPR + rekursiv dubblettsammanslagning. Vi har
-  tagit metoden, inte koden: den här motorn är skriven från grunden i JS och är
-  inte ett derivat.
+  tagit metoden, inte koden: den här motorn är skriven från grunden i JS, delar
+  ingen kod med IfcToolbox och är alltså inget derivat av den.
+
+## Upphovsrätt
+
+© BIM Engine AB. Koden ligger öppet för att den ska vara enkel att komma åt och
+granska, men den är inte släppt som fri programvara — hör av dig om du vill
+använda den i något eget.
+
