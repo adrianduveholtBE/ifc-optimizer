@@ -1,0 +1,3892 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFC Optimizer — BIM Engine</title>
+<!-- byggd 2026-08-21 10:40 ur C:\Dev\jobb\IFC Optimizer -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --black: #000000;
+  --mint: #85B09A;
+  --mint-bright: #9DCBB3;
+  --mint-dim: rgba(133,176,154,0.12);
+  --paper: #0d0f0e;
+  --panel: #16191a;
+  --panel-2: #1d2122;
+  --line: #2a2f30;
+  --text: #e8eae9;
+  --text-dim: #8a918f;
+  --danger: #c97a6d;
+  --warn: #d6b06a;
+  --mono: 'Space Mono', ui-monospace, Consolas, monospace;
+  --sans: 'Archivo', 'Segoe UI', system-ui, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--text);
+  min-height: 100vh;
+  background-image:
+    linear-gradient(rgba(133,176,154,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(133,176,154,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 80px; }
+
+header {
+  border-bottom: 1px solid var(--line);
+  padding: 28px 0 24px;
+  margin-bottom: 28px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.logo { display: flex; align-items: center; gap: 14px; }
+.logo-mark { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; display: block; }
+.logo h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.logo .sub {
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.tag { font-family: var(--mono); font-size: 11px; color: var(--mint); border: 1px solid var(--line); padding: 6px 12px; }
+.tag.bad { color: var(--danger); }
+
+.grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.card { background: var(--panel); border: 1px solid var(--line); padding: 22px; }
+.card + .card { margin-top: 24px; }
+.card h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--mint); margin-bottom: 18px; font-family: var(--mono);
+  font-weight: 700; display: flex; align-items: center; gap: 8px;
+}
+.card h2::before { content: ''; width: 6px; height: 6px; background: var(--mint); display: inline-block; }
+.card h2 .right { margin-left: auto; color: var(--text-dim); font-weight: 400; letter-spacing: 0.05em; }
+
+/* dropzone */
+.drop {
+  border: 1.5px dashed var(--line); background: var(--panel-2);
+  padding: 34px 20px; text-align: center; cursor: pointer; transition: all .2s;
+}
+.drop:hover, .drop.over { border-color: var(--mint); background: var(--mint-dim); }
+.drop p { color: var(--text-dim); font-size: 14px; }
+.drop strong { color: var(--text); }
+.drop .ic { font-size: 26px; color: var(--mint); margin-bottom: 8px; }
+
+/* fillista */
+.filelist { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.file {
+  background: var(--panel-2); border: 1px solid var(--line); padding: 11px 13px;
+}
+.file .row1 { display: flex; align-items: center; gap: 10px; }
+.file .nm { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.file .sz { color: var(--text-dim); font-size: 11px; font-family: var(--mono); white-space: nowrap; }
+.file .x { color: var(--danger); cursor: pointer; background: none; border: none; font-size: 16px; line-height: 1; }
+.file .state { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); }
+.file .state.ok { color: var(--mint); }
+.file .state.err { color: var(--danger); }
+.file .meta { margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.file .meta b { color: var(--text); font-weight: 400; }
+.file .bar { height: 3px; background: var(--line); margin-top: 9px; overflow: hidden; }
+.file .bar i { display: block; height: 100%; background: var(--mint); width: 0; transition: width .2s; }
+
+/* analystabell */
+.cats { margin-top: 4px; display: flex; flex-direction: column; gap: 5px; }
+.catrow { display: grid; grid-template-columns: 170px 1fr 96px; gap: 10px; align-items: center; font-size: 12px; }
+.catrow .lbl { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catrow .track { height: 9px; background: var(--panel-2); border: 1px solid var(--line); }
+.catrow .track i { display: block; height: 100%; background: var(--mint); }
+.catrow .track i.dim { background: #4a5b53; }
+.catrow .val { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; }
+
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.tbl th {
+  text-align: left; font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-dim); font-weight: 400;
+  border-bottom: 1px solid var(--line); padding: 6px 8px 6px 0;
+}
+table.tbl td { padding: 5px 8px 5px 0; border-bottom: 1px solid rgba(42,47,48,.5); font-family: var(--mono); font-size: 11px; }
+table.tbl td.name { font-family: var(--sans); font-size: 12px; }
+table.tbl td.num { text-align: right; color: var(--text-dim); }
+table.tbl tr:hover td { background: rgba(133,176,154,0.04); }
+table.tbl td label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+
+/* nivåval */
+.seg { display: flex; border: 1px solid var(--line); }
+.seg button {
+  background: var(--panel-2); border: none; color: var(--text-dim);
+  padding: 10px 14px; font-family: var(--mono); font-size: 12px; cursor: pointer; flex: 1;
+  border-right: 1px solid var(--line);
+}
+.seg button:last-child { border-right: none; }
+.seg button.on { background: var(--mint); color: var(--black); font-weight: 700; }
+.seg.sm button { padding: 6px 10px; font-size: 11px; }
+
+.levelnote { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-top: 12px; }
+.levelnote b { color: var(--text); font-weight: 600; }
+
+.opts { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+.opts .grp { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mint); margin: 14px 0 8px; }
+.opts .grp:first-child { margin-top: 0; }
+.opt { display: flex; align-items: flex-start; gap: 9px; padding: 5px 0; font-size: 13px; }
+.opt input { margin-top: 3px; accent-color: var(--mint); }
+.opt .txt { flex: 1; }
+.opt .txt small { display: block; color: var(--text-dim); font-size: 11px; line-height: 1.5; margin-top: 1px; }
+.opt .est { font-family: var(--mono); font-size: 11px; color: var(--mint); white-space: nowrap; padding-top: 2px; }
+.opt.risk .txt small { color: var(--warn); }
+
+.field { margin-top: 12px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
+.field input[type=text] {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  padding: 10px; font-family: var(--mono); font-size: 12px; outline: none;
+}
+.field input[type=text]:focus { border-color: var(--mint); }
+
+.btn {
+  background: var(--mint); color: var(--black); border: none;
+  padding: 14px 20px; font-family: var(--sans); font-weight: 700; font-size: 14px;
+  cursor: pointer; width: 100%; margin-top: 18px; letter-spacing: .02em;
+  transition: background .15s; text-transform: uppercase;
+}
+.btn:hover { background: var(--mint-bright); }
+.btn:disabled { background: var(--line); color: var(--text-dim); cursor: not-allowed; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+.btn.ghost:hover { border-color: var(--mint); color: var(--mint); }
+.btn.sm { width: auto; padding: 8px 13px; margin: 0; font-size: 12px; }
+.btnrow { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+/* logg */
+.log {
+  font-family: var(--mono); font-size: 11.5px; background: var(--black);
+  border: 1px solid var(--line); padding: 13px; height: 190px; overflow-y: auto;
+  color: var(--text-dim); line-height: 1.65; margin-top: 14px;
+}
+.log .ok { color: var(--mint); }
+.log .err { color: var(--danger); }
+.log .warn { color: var(--warn); }
+.log .ts { color: #555; }
+.progress { height: 4px; background: var(--line); margin-top: 14px; overflow: hidden; }
+.progress .bar { height: 100%; background: var(--mint); width: 0; transition: width .2s; }
+.phase { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+
+/* resultat */
+.res { border: 1px solid var(--line); background: var(--panel-2); padding: 14px; margin-top: 12px; }
+.res .top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.res .nm { font-family: var(--mono); font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res .pct { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--mint); }
+.res .sizes { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.res .facts { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.res .facts b { color: var(--text); font-weight: 400; }
+.res .vbadge { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; border: 1px solid var(--mint); color: var(--mint); padding: 3px 7px; }
+.res .vbadge.bad { border-color: var(--danger); color: var(--danger); }
+.bigbar { display: flex; height: 22px; border: 1px solid var(--line); margin-top: 12px; }
+.bigbar i { display: block; height: 100%; }
+.bigbar i.after { background: var(--mint); }
+.bigbar i.gone { background: repeating-linear-gradient(45deg, #2a2f30, #2a2f30 4px, #1d2122 4px, #1d2122 8px); }
+
+.hint { font-size: 12px; color: var(--text-dim); margin-top: 12px; line-height: 1.6; }
+.hint code { color: var(--mint); font-family: var(--mono); }
+.warnbox { border-left: 2px solid var(--warn); background: rgba(214,176,106,.07); padding: 10px 12px; font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-top: 14px; }
+.warnbox b { color: var(--warn); }
+footer { margin-top: 40px; text-align: center; font-family: var(--mono); font-size: 11px; color: #555; line-height: 1.8; }
+.muted { color: var(--text-dim); }
+.nowrap { white-space: nowrap; }
+details.more summary { cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--mint); margin-top: 12px; }
+details.more[open] summary { margin-bottom: 8px; }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <img class="logo-mark" src="data:image/png;base64,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" alt="BIM Engine">
+      <div>
+        <h1>IFC Optimizer</h1>
+        <div class="sub">BIM Engine · krymper IFC utan att tappa modellen</div>
+      </div>
+    </div>
+    <div class="tag" id="engineState">motor · startar</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <!-- 1 · FILER -->
+      <div class="card">
+        <h2>1 · Filer <span class="right" id="fileSum"></span></h2>
+        <div class="drop" id="drop">
+          <div class="ic">⬇</div>
+          <p><strong>Dra in IFC-filer här</strong> eller klicka för att välja<br>
+          <span class="muted">.ifc och .ifczip · flera samtidigt · inget lämnar datorn</span></p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".ifc,.ifczip,.ifcZIP,.IFC" style="display:none">
+        <div class="filelist" id="fileList"></div>
+        <div class="hint" id="fileHint" style="display:none"></div>
+      </div>
+
+      <!-- 2 · ANALYS -->
+      <div class="card" id="analysisCard" style="display:none">
+        <h2>2 · Var ligger byten? <span class="right" id="analysisFor"></span></h2>
+        <div class="cats" id="cats"></div>
+        <details class="more" id="typeMore">
+          <summary>Visa de tyngsta IFC-klasserna</summary>
+          <table class="tbl" id="typeTbl"></table>
+        </details>
+        <details class="more" id="elemMore">
+          <summary>Välj byggdelsklasser att ta bort helt</summary>
+          <div class="hint">Kryssa klasser som inte behövs i den här leveransen — t.ex. armering eller inredning. Objekten och deras geometri tas bort ur filen.</div>
+          <table class="tbl" id="elemTbl"></table>
+        </details>
+      </div>
+    </div>
+
+    <div>
+      <!-- 3 · NIVÅ -->
+      <div class="card">
+        <h2>3 · Nivå</h2>
+        <div class="seg" id="presetSeg">
+          <button data-p="latt">Lätt</button>
+          <button data-p="medel" class="on">Medel</button>
+          <button data-p="aggressiv">Aggressiv</button>
+        </div>
+        <div class="levelnote" id="levelNote"></div>
+
+        <div class="field">
+          <label>Koordinatprecision</label>
+          <div class="seg sm" id="tolSeg">
+            <button data-t="0.1">0,1 mm</button>
+            <button data-t="0.01" class="on">0,01 mm</button>
+            <button data-t="0.001">0,001 mm</button>
+            <button data-t="0">av</button>
+          </div>
+          <div class="hint" id="tolNote"></div>
+        </div>
+
+        <details class="more" id="advMore">
+          <summary>Alla inställningar</summary>
+          <div class="opts" id="opts"></div>
+        </details>
+
+        <button class="btn" id="runBtn" disabled>Optimera</button>
+        <div class="progress"><div class="bar" id="bar"></div></div>
+        <div class="phase" id="phase"></div>
+        <div class="log" id="log"></div>
+      </div>
+
+      <!-- 4 · RESULTAT -->
+      <div class="card" id="resultCard" style="display:none">
+        <h2>4 · Resultat <span class="right" id="resSum"></span></h2>
+        <div id="results"></div>
+        <div class="btnrow">
+          <button class="btn ghost sm" id="dlAll">Ladda ner alla</button>
+          <button class="btn ghost sm" id="copyRep">Kopiera rapport</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    IFC Optimizer 1.0 · BIM Engine AB · allt arbete sker lokalt i webbläsaren<br>
+    frågor om verktyget — kontakta Adrian
+  </footer>
+</div>
+
+<script id="engineSrc" type="text/js-worker">
+/* ===== 00-util.js ===== */
+/* ==========================================================================
+   IFC Optimizer — BIM Engine
+   00-util.js  ·  byte-nivå hjälpfunktioner, talformatering, CRC32, ZIP
+   ========================================================================== */
+'use strict';
+
+/* --- teckenkoder vi använder ofta ---------------------------------------- */
+const CH_HASH = 35, CH_EQ = 61, CH_LP = 40, CH_RP = 41, CH_SEMI = 59,
+      CH_QUOTE = 39, CH_COMMA = 44, CH_STAR = 42, CH_SLASH = 47,
+      CH_DOT = 46, CH_MINUS = 45, CH_PLUS = 43, CH_E = 69, CH_e = 101,
+      CH_0 = 48, CH_9 = 57, CH_A = 65, CH_Z = 90, CH_a = 97, CH_z = 122,
+      CH_US = 95, CH_SP = 32, CH_TAB = 9, CH_CR = 13, CH_LF = 10, CH_DOLLAR = 36;
+
+function isDigit(c) { return c >= CH_0 && c <= CH_9; }
+function isWs(c) { return c === CH_SP || c === CH_LF || c === CH_CR || c === CH_TAB; }
+function isNameChar(c) {
+  return (c >= CH_A && c <= CH_Z) || (c >= CH_a && c <= CH_z) || isDigit(c) || c === CH_US || c === CH_MINUS;
+}
+
+/* Läs ASCII-sträng ur en byte-buffer. IFC-filer är ASCII med \X2\-escapes,
+   så byte -> char 1:1 är förlustfritt. */
+function ascii(buf, from, to) {
+  let s = '';
+  const CHUNK = 8192;
+  for (let i = from; i < to; i += CHUNK) {
+    const end = Math.min(i + CHUNK, to);
+    s += String.fromCharCode.apply(null, buf.subarray(i, end));
+  }
+  return s;
+}
+
+function asciiBytes(str) {
+  const out = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) out[i] = str.charCodeAt(i) & 0xff;
+  return out;
+}
+
+/* --- växande Int32-vektor (referenslistor) ------------------------------- */
+class I32Vec {
+  constructor(cap) { this.a = new Int32Array(cap || 1024); this.n = 0; }
+  push(v) {
+    if (this.n === this.a.length) {
+      const b = new Int32Array(this.a.length * 2);
+      b.set(this.a); this.a = b;
+    }
+    this.a[this.n++] = v;
+  }
+  trim() { return this.a.subarray(0, this.n); }
+}
+
+/* --- utskriftsbuffert i block (undviker en enda gigantisk allokering) ---- */
+class ByteSink {
+  constructor(blockSize) {
+    this.bs = blockSize || (4 << 20);
+    this.blocks = [];
+    this.cur = new Uint8Array(this.bs);
+    this.p = 0;
+    this.done = 0;          // bytes i redan stängda block
+  }
+  _flush(need) {
+    this.blocks.push(this.cur.subarray(0, this.p));
+    this.done += this.p;
+    this.cur = new Uint8Array(Math.max(this.bs, need));
+    this.p = 0;
+  }
+  byte(b) {
+    if (this.p === this.cur.length) this._flush(1);
+    this.cur[this.p++] = b;
+  }
+  raw(buf, from, to) {
+    let i = from;
+    while (i < to) {
+      if (this.p === this.cur.length) this._flush(1);
+      const n = Math.min(to - i, this.cur.length - this.p);
+      this.cur.set(buf.subarray(i, i + n), this.p);
+      this.p += n; i += n;
+    }
+  }
+  str(s) {
+    if (this.p + s.length > this.cur.length) this._flush(s.length);
+    const c = this.cur; let p = this.p;
+    for (let i = 0; i < s.length; i++) c[p++] = s.charCodeAt(i) & 0xff;
+    this.p = p;
+  }
+  /* positivt heltal, utan strängallokering */
+  uint(v) {
+    if (v === 0) { this.byte(CH_0); return; }
+    const tmp = ByteSink._tmp;
+    let n = 0;
+    while (v > 0) { const q = Math.floor(v / 10); tmp[n++] = CH_0 + (v - q * 10); v = q; }
+    if (this.p + n > this.cur.length) this._flush(n);
+    const c = this.cur; let p = this.p;
+    while (n > 0) c[p++] = tmp[--n];
+    this.p = p;
+  }
+  size() { return this.done + this.p; }
+  finish() {
+    if (this.p > 0) { this.blocks.push(this.cur.subarray(0, this.p)); this.done += this.p; this.p = 0; }
+    this.cur = new Uint8Array(0);
+    return this.blocks;
+  }
+}
+ByteSink._tmp = new Uint8Array(24);
+
+/* --- talformatering ------------------------------------------------------
+   STEP kräver punkt i REAL: "5." är giltigt, "5" är ett heltal.            */
+function fmtReal(v, dec) {
+  if (!isFinite(v)) return '0.';
+  let s = v.toFixed(dec);
+  const dot = s.indexOf('.');
+  if (dot >= 0) {
+    let end = s.length;
+    while (end > dot + 1 && s.charCodeAt(end - 1) === CH_0) end--;
+    s = s.slice(0, end);
+  } else {
+    s += '.';
+  }
+  if (s === '-0.') s = '0.';
+  return s;
+}
+
+/* Är [from,to) ett REAL-token (dvs innehåller punkt eller exponent)?       */
+function isRealToken(buf, from, to) {
+  let hasDot = false, hasDigit = false, hasExp = false;
+  for (let i = from; i < to; i++) {
+    const c = buf[i];
+    if (isDigit(c)) hasDigit = true;
+    else if (c === CH_DOT) hasDot = true;
+    else if (c === CH_E || c === CH_e) hasExp = true;
+    else if (c === CH_MINUS || c === CH_PLUS) { /* tecken */ }
+    else return false;
+  }
+  return hasDigit && (hasDot || hasExp);
+}
+
+/* Antal decimaler i ett REAL-token. -1 = exponentform. */
+function decimalsOf(buf, from, to) {
+  let dot = -1;
+  for (let i = from; i < to; i++) {
+    const c = buf[i];
+    if (c === CH_DOT) dot = i;
+    else if (c === CH_E || c === CH_e) return -1;
+  }
+  if (dot < 0) return 0;
+  return to - dot - 1;
+}
+
+/* --- 32-bitars hash (FNV-1a över bytes) ---------------------------------- */
+function hashInit() { return 0x811c9dc5 | 0; }
+function hashByte(h, b) { h ^= b; return Math.imul(h, 0x01000193); }
+function hashStr(h, s) { for (let i = 0; i < s.length; i++) h = hashByte(h, s.charCodeAt(i) & 0xff); return h; }
+function hashInt(h, v) {
+  h = hashByte(h, v & 0xff); h = hashByte(h, (v >>> 8) & 0xff);
+  h = hashByte(h, (v >>> 16) & 0xff); h = hashByte(h, (v >>> 24) & 0xff);
+  return h;
+}
+
+/* --- CRC32 (ZIP) --------------------------------------------------------- */
+const CRC_TABLE = (function () {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32Blocks(blocks) {
+  let c = -1;
+  for (const b of blocks) for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+/* --- ZIP: skriv enfilsarkiv (.ifczip) ------------------------------------ */
+async function zipSingle(nameStr, blocks) {
+  const nameB = asciiBytes(nameStr);
+  let raw = 0; for (const b of blocks) raw += b.length;
+  const crc = crc32Blocks(blocks);
+
+  let comp = null;
+  if (typeof CompressionStream !== 'undefined') {
+    const cs = new CompressionStream('deflate-raw');
+    const writer = cs.writable.getWriter();
+    const pump = (async () => {
+      for (const b of blocks) await writer.write(b);
+      await writer.close();
+    })();
+    comp = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+    await pump;
+  }
+  const method = comp ? 8 : 0;
+  const payloadLen = comp ? comp.length : raw;
+
+  const head = new DataView(new ArrayBuffer(30));
+  head.setUint32(0, 0x04034b50, true);
+  head.setUint16(4, 20, true);
+  head.setUint16(6, 0x0800, true);
+  head.setUint16(8, method, true);
+  head.setUint16(10, 0, true);
+  head.setUint16(12, 0x21, true);
+  head.setUint32(14, crc, true);
+  head.setUint32(18, payloadLen, true);
+  head.setUint32(22, raw, true);
+  head.setUint16(26, nameB.length, true);
+  head.setUint16(28, 0, true);
+
+  const cd = new DataView(new ArrayBuffer(46));
+  cd.setUint32(0, 0x02014b50, true);
+  cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+  cd.setUint16(8, 0x0800, true);
+  cd.setUint16(10, method, true);
+  cd.setUint16(12, 0, true); cd.setUint16(14, 0x21, true);
+  cd.setUint32(16, crc, true);
+  cd.setUint32(20, payloadLen, true);
+  cd.setUint32(24, raw, true);
+  cd.setUint16(28, nameB.length, true);
+  cd.setUint32(38, 0, true);
+  cd.setUint32(42, 0, true);
+
+  const cdSize = 46 + nameB.length;
+  const cdOff = 30 + nameB.length + payloadLen;
+
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(8, 1, true); eocd.setUint16(10, 1, true);
+  eocd.setUint32(12, cdSize, true);
+  eocd.setUint32(16, cdOff, true);
+
+  const parts = [new Uint8Array(head.buffer), nameB];
+  if (comp) parts.push(comp); else for (const b of blocks) parts.push(b);
+  parts.push(new Uint8Array(cd.buffer), nameB, new Uint8Array(eocd.buffer));
+  return parts;
+}
+
+/* --- ZIP: läs första IFC-posten ur ett arkiv ----------------------------- */
+async function unzipFirstIfc(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Ogiltigt ZIP-arkiv (hittar ingen katalog).');
+  const nEntries = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  for (let k = 0; k < nEntries; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const cSize = dv.getUint32(p + 20, true);
+    const uSize = dv.getUint32(p + 24, true);
+    const nLen = dv.getUint16(p + 28, true);
+    const eLen = dv.getUint16(p + 30, true);
+    const cLen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true);
+    const name = ascii(u8, p + 46, p + 46 + nLen);
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.ifc') || lower.endsWith('.stp') || lower.endsWith('.step')) {
+      const lhNameLen = dv.getUint16(lho + 26, true);
+      const lhExtra = dv.getUint16(lho + 28, true);
+      const dataOff = lho + 30 + lhNameLen + lhExtra;
+      const payload = u8.subarray(dataOff, dataOff + cSize);
+      if (method === 0) return { name, bytes: payload };
+      if (method === 8) {
+        if (typeof DecompressionStream === 'undefined') throw new Error('Webbläsaren kan inte packa upp ZIP.');
+        const ds = new DecompressionStream('deflate-raw');
+        const w = ds.writable.getWriter();
+        w.write(payload); w.close();
+        const out = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+        if (uSize && out.length !== uSize) throw new Error('ZIP-uppackningen gav fel storlek.');
+        return { name, bytes: out };
+      }
+      throw new Error('ZIP-posten använder komprimering vi inte stöder (metod ' + method + ').');
+    }
+    p += 46 + nLen + eLen + cLen;
+  }
+  throw new Error('Hittade ingen IFC-fil inne i arkivet.');
+}
+
+/* --- småformat ----------------------------------------------------------- */
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1).replace('.', ',') + ' kB';
+  if (n < 1073741824) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  return (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
+}
+function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+function fmtPct(x) { return (x * 100).toFixed(1).replace('.', ',') + ' %'; }
+
+/* ===== 05-options.js ===== */
+/* ==========================================================================
+   05-options.js  ·  inställningar och förinställningar
+   Laddas både i gränssnittet och i webbarbetaren.
+   ========================================================================== */
+
+function decimalsFor(unitFactor, tolMetres) {
+  const tolU = tolMetres / (unitFactor || 1);
+  const d = Math.ceil(-Math.log10(tolU));
+  return Math.max(0, Math.min(9, isFinite(d) ? d : 3));
+}
+
+function baseOptions() {
+  return {
+    roundCoords: true, coordDec: 2, ratioDec: 9, tolMm: 0.01,
+    dedup: true, unifyOwnerHistory: true, gc: true, renumber: true, stamp: true,
+    dropPsets: false, dropQuantities: false, dropTypes: false, dropMaterials: false,
+    dropStyles: false, dropLayers: false, dropClassifications: false,
+    dropConnectivity: false, drop2D: false, dropGrids: false, dropSpaces: false,
+    dropSpaceBoundaries: false, dropOpenings: false, dropClasses: [],
+    mergeCoplanar: false, weld: false, weldTolMm: 0.5, boxify: false,
+    zip: false, verify: true, suffix: '_optimerad'
+  };
+}
+
+const PRESET_KEYS = ['latt', 'medel', 'aggressiv'];
+
+function presetOptions(preset) {
+  const o = baseOptions();
+  if (preset === 'medel' || preset === 'aggressiv') {
+    o.dropPsets = true; o.dropQuantities = true; o.dropTypes = true;
+    o.dropMaterials = true; o.dropClassifications = true; o.dropConnectivity = true;
+    o.drop2D = true; o.dropLayers = true; o.dropSpaceBoundaries = true;
+    o.mergeCoplanar = true;
+  }
+  if (preset === 'aggressiv') {
+    o.dropStyles = true; o.dropSpaces = true; o.dropOpenings = true;
+    o.dropGrids = true; o.weld = true; o.zip = true;
+  }
+  return o;
+}
+
+/* ===== 10-parse.js ===== */
+/* ==========================================================================
+   10-parse.js  ·  STEP/SPF-läsare på byte-nivå
+   --------------------------------------------------------------------------
+   Vi bygger aldrig strängar av hela filen. Varje instans lagras som offset
+   i originalbufferten, vilket gör att 100-300 MB-modeller går att hantera.
+   ========================================================================== */
+
+const T_UNKNOWN = 0;
+
+class IfcModel {
+  constructor(buf) {
+    this.buf = buf;
+    this.n = 0;
+    this.ids = null;      // Uint32Array  — instansnummer (#123 -> 123)
+    this.sOff = null;     // Uint32Array  — offset för '#'
+    this.pOff = null;     // Uint32Array  — offset för '(' som öppnar attributlistan
+    this.eOff = null;     // Uint32Array  — offset efter ')' som stänger den
+    this.tId = null;      // Uint16Array  — typindex
+    this.typeNames = [];  // typindex -> 'IFCWALL'
+    this.typeIds = new Map();
+    this.typeCount = null;
+    this.typeBytes = null;
+    this.headStart = 0;
+    this.headEnd = 0;     // offset efter 'DATA;'
+    this.dataEnd = 0;     // offset för 'ENDSEC;' som stänger DATA
+    this.tailStart = 0;
+    this._map = null;     // Uint32Array (idx+1) eller Map
+    this._mapArr = false;
+    this._extra = null;   // id -> idx+1 för instanser vi lagt till själva
+    this.maxId = 0;
+    this.schema = '';
+    this.refOff = null; this.refIdx = null;
+    this.parOff = null; this.parIdx = null;
+  }
+
+  typeOf(i) { return this.typeNames[this.tId[i]]; }
+  idxOf(id) {
+    if (this._extra !== null) {
+      const x = this._extra.get(id);
+      if (x !== undefined) return x - 1;
+    }
+    if (this._mapArr) { const v = id < this._map.length ? this._map[id] : 0; return v - 1; }
+    const v = this._map.get(id); return v === undefined ? -1 : v - 1;
+  }
+  /* attributlistans inre gränser (utan parenteser) */
+  pStart(i) { return this.pOff[i] + 1; }
+  pEnd(i) { return this.eOff[i] - 1; }
+  stmtLen(i) { return this.eOff[i] - this.sOff[i]; }
+}
+
+/* hoppa över blanktecken och /* kommentarer *\/ */
+function skipWs(buf, i, end) {
+  while (i < end) {
+    const c = buf[i];
+    if (isWs(c)) { i++; continue; }
+    if (c === CH_SLASH && i + 1 < end && buf[i + 1] === CH_STAR) {
+      i += 2;
+      while (i + 1 < end && !(buf[i] === CH_STAR && buf[i + 1] === CH_SLASH)) i++;
+      i += 2; continue;
+    }
+    break;
+  }
+  return i;
+}
+
+/* skanna balanserad parentesgrupp; i pekar på '('. Returnerar offset efter ')' */
+function skipGroup(buf, i, end) {
+  let depth = 0;
+  while (i < end) {
+    const c = buf[i];
+    if (c === CH_QUOTE) {                      // sträng
+      i++;
+      while (i < end) {
+        if (buf[i] === CH_QUOTE) {
+          if (i + 1 < end && buf[i + 1] === CH_QUOTE) { i += 2; continue; }
+          i++; break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === CH_SLASH && i + 1 < end && buf[i + 1] === CH_STAR) {
+      i += 2;
+      while (i + 1 < end && !(buf[i] === CH_STAR && buf[i + 1] === CH_SLASH)) i++;
+      i += 2; continue;
+    }
+    if (c === CH_LP) { depth++; i++; continue; }
+    if (c === CH_RP) { depth--; i++; if (depth === 0) return i; continue; }
+    i++;
+  }
+  return -1;
+}
+
+function findSeq(buf, needle, from, to) {
+  const n0 = needle[0], L = needle.length;
+  const last = (to === undefined ? buf.length : to) - L;
+  for (let i = from; i <= last; i++) {
+    if (buf[i] !== n0) continue;
+    let k = 1;
+    while (k < L && buf[i + k] === needle[k]) k++;
+    if (k === L) return i;
+  }
+  return -1;
+}
+function findSeqBack(buf, needle, from) {
+  const n0 = needle[0], L = needle.length;
+  for (let i = from; i >= 0; i--) {
+    if (buf[i] !== n0) continue;
+    let k = 1;
+    while (k < L && buf[i + k] === needle[k]) k++;
+    if (k === L) return i;
+  }
+  return -1;
+}
+
+const SEQ_DATA = asciiBytes('DATA;');
+const SEQ_ENDSEC = asciiBytes('ENDSEC;');
+const SEQ_END_ISO = asciiBytes('END-ISO-10303-21');
+const SEQ_SCHEMA = asciiBytes('FILE_SCHEMA');
+
+/* --------------------------------------------------------------------------
+   parseIndex — bygger instansindexet
+   -------------------------------------------------------------------------- */
+function parseIndex(buf, progress) {
+  const m = new IfcModel(buf);
+  const N = buf.length;
+
+  const dataKw = findSeq(buf, SEQ_DATA, 0, Math.min(N, 1 << 20));
+  if (dataKw < 0) throw new Error('Filen saknar DATA-sektion — är det verkligen en IFC-fil (SPF)?');
+  m.headEnd = dataKw + SEQ_DATA.length;
+
+  const endIso = findSeqBack(buf, SEQ_END_ISO, N - SEQ_END_ISO.length);
+  const searchTo = endIso > 0 ? endIso : N - 1;
+  const endsec = findSeqBack(buf, SEQ_ENDSEC, searchTo - SEQ_ENDSEC.length);
+  m.dataEnd = endsec > m.headEnd ? endsec : N;
+  m.tailStart = m.dataEnd;
+
+  // schema ur headern
+  const sc = findSeq(buf, SEQ_SCHEMA, 0, m.headEnd);
+  if (sc > 0) {
+    const q1 = findSeq(buf, asciiBytes("'"), sc, m.headEnd);
+    if (q1 > 0) {
+      let q2 = q1 + 1;
+      while (q2 < m.headEnd && buf[q2] !== CH_QUOTE) q2++;
+      m.schema = ascii(buf, q1 + 1, q2).toUpperCase();
+    }
+  }
+
+  // Pass 1: räkna instanser
+  let count = 0, maxId = 0;
+  {
+    let i = m.headEnd;
+    const end = m.dataEnd;
+    while (i < end) {
+      i = skipWs(buf, i, end);
+      if (i >= end) break;
+      if (buf[i] !== CH_HASH) { i++; continue; }
+      let j = i + 1, id = 0, nd = 0;
+      while (j < end && isDigit(buf[j])) { id = id * 10 + (buf[j] - CH_0); j++; nd++; }
+      if (nd === 0) { i++; continue; }
+      j = skipWs(buf, j, end);
+      if (j >= end || buf[j] !== CH_EQ) { i = j; continue; }
+      j = skipWs(buf, j + 1, end);
+      // typnamn (kan saknas vid komplexa instanser: #1=(A(..),B(..));)
+      while (j < end && isNameChar(buf[j])) j++;
+      j = skipWs(buf, j, end);
+      if (j >= end || buf[j] !== CH_LP) { i = j; continue; }
+      const after = skipGroup(buf, j, end);
+      if (after < 0) break;
+      count++; if (id > maxId) maxId = id;
+      let k = skipWs(buf, after, end);
+      if (k < end && buf[k] === CH_SEMI) k++;
+      i = k;
+    }
+  }
+  if (count === 0) throw new Error('Hittade inga IFC-instanser i DATA-sektionen.');
+
+  m.n = count;
+  m.maxId = maxId;
+  m.ids = new Uint32Array(count);
+  m.sOff = new Uint32Array(count);
+  m.pOff = new Uint32Array(count);
+  m.eOff = new Uint32Array(count);
+  m.tId = new Uint16Array(count);
+
+  if (maxId <= 20000000) { m._map = new Uint32Array(maxId + 1); m._mapArr = true; }
+  else { m._map = new Map(); m._mapArr = false; }
+
+  m.typeNames.push('*UNKNOWN*'); m.typeIds.set('*UNKNOWN*', 0);
+
+  // Pass 2: fyll indexet
+  {
+    let i = m.headEnd, w = 0;
+    const end = m.dataEnd;
+    const nextProg = Math.max(1, Math.floor(count / 20));
+    while (i < end && w < count) {
+      i = skipWs(buf, i, end);
+      if (i >= end) break;
+      if (buf[i] !== CH_HASH) { i++; continue; }
+      const s = i;
+      let j = i + 1, id = 0, nd = 0;
+      while (j < end && isDigit(buf[j])) { id = id * 10 + (buf[j] - CH_0); j++; nd++; }
+      if (nd === 0) { i++; continue; }
+      j = skipWs(buf, j, end);
+      if (j >= end || buf[j] !== CH_EQ) { i = j; continue; }
+      j = skipWs(buf, j + 1, end);
+      const tS = j;
+      while (j < end && isNameChar(buf[j])) j++;
+      const tE = j;
+      j = skipWs(buf, j, end);
+      if (j >= end || buf[j] !== CH_LP) { i = j; continue; }
+      const after = skipGroup(buf, j, end);
+      if (after < 0) break;
+
+      let tid = 0;
+      if (tE > tS) {
+        const name = ascii(buf, tS, tE).toUpperCase();
+        let t = m.typeIds.get(name);
+        if (t === undefined) {
+          t = m.typeNames.length;
+          if (t > 65530) t = 0;
+          else { m.typeNames.push(name); m.typeIds.set(name, t); }
+        }
+        tid = t;
+      }
+      m.ids[w] = id; m.sOff[w] = s; m.pOff[w] = j; m.eOff[w] = after; m.tId[w] = tid;
+      if (m._mapArr) m._map[id] = w + 1; else m._map.set(id, w + 1);
+      w++;
+      if (progress && (w % nextProg) === 0) progress(w / count);
+
+      let k = skipWs(buf, after, end);
+      if (k < end && buf[k] === CH_SEMI) k++;
+      i = k;
+    }
+    m.n = w;
+  }
+
+  // typstatistik
+  const nt = m.typeNames.length;
+  m.typeCount = new Uint32Array(nt);
+  m.typeBytes = new Float64Array(nt);
+  for (let i = 0; i < m.n; i++) {
+    const t = m.tId[i];
+    m.typeCount[t]++;
+    m.typeBytes[t] += (m.eOff[i] - m.sOff[i]) + 2;   // +2 ~ ';' + radbrytning
+  }
+  return m;
+}
+
+/* --------------------------------------------------------------------------
+   buildRefs — referensgraf (barn) + omvänd graf (föräldrar), CSR-format
+   -------------------------------------------------------------------------- */
+function buildRefs(m, progress) {
+  const buf = m.buf, n = m.n;
+  const off = new Uint32Array(n + 1);
+  const vec = new I32Vec(Math.max(1024, n * 2));
+  const step = Math.max(1, Math.floor(n / 20));
+  m.inputDangling = 0;
+
+  for (let i = 0; i < n; i++) {
+    off[i] = vec.n;
+    let p = m.pOff[i];
+    const end = m.eOff[i];
+    while (p < end) {
+      const c = buf[p];
+      if (c === CH_QUOTE) {
+        p++;
+        while (p < end) {
+          if (buf[p] === CH_QUOTE) {
+            if (p + 1 < end && buf[p + 1] === CH_QUOTE) { p += 2; continue; }
+            p++; break;
+          }
+          p++;
+        }
+        continue;
+      }
+      if (c === CH_SLASH && p + 1 < end && buf[p + 1] === CH_STAR) {
+        p += 2;
+        while (p + 1 < end && !(buf[p] === CH_STAR && buf[p + 1] === CH_SLASH)) p++;
+        p += 2; continue;
+      }
+      if (c === CH_HASH) {
+        let q = p + 1, id = 0, nd = 0;
+        while (q < end && isDigit(buf[q])) { id = id * 10 + (buf[q] - CH_0); q++; nd++; }
+        if (nd > 0) {
+          const t = m.idxOf(id);
+          if (t >= 0) vec.push(t); else m.inputDangling++;
+          p = q; continue;
+        }
+      }
+      p++;
+    }
+    if (progress && (i % step) === 0) progress(i / n);
+  }
+  off[n] = vec.n;
+  m.refOff = off;
+  m.refIdx = vec.trim();
+
+  // omvänd graf
+  const pc = new Uint32Array(n + 1);
+  const R = m.refIdx, total = R.length;
+  for (let k = 0; k < total; k++) pc[R[k] + 1]++;
+  for (let i = 0; i < n; i++) pc[i + 1] += pc[i];
+  const pIdx = new Int32Array(total);
+  const cursor = pc.slice(0, n);
+  for (let i = 0; i < n; i++) {
+    const a = off[i], b = off[i + 1];
+    for (let k = a; k < b; k++) { const c = R[k]; pIdx[cursor[c]++] = i; }
+  }
+  m.parOff = pc;
+  m.parIdx = pIdx;
+  return m;
+}
+
+/* --------------------------------------------------------------------------
+   attributhjälpare
+   -------------------------------------------------------------------------- */
+/* Dela attributlistan på kommatecken i toppnivå. Returnerar [s0,e0,s1,e1,...] */
+function splitAttrs(buf, from, to, out) {
+  out.length = 0;
+  let depth = 0, s = from, i = from;
+  while (i < to) {
+    const c = buf[i];
+    if (c === CH_QUOTE) {
+      i++;
+      while (i < to) {
+        if (buf[i] === CH_QUOTE) {
+          if (i + 1 < to && buf[i + 1] === CH_QUOTE) { i += 2; continue; }
+          i++; break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === CH_SLASH && i + 1 < to && buf[i + 1] === CH_STAR) {
+      i += 2;
+      while (i + 1 < to && !(buf[i] === CH_STAR && buf[i + 1] === CH_SLASH)) i++;
+      i += 2; continue;
+    }
+    if (c === CH_LP) { depth++; i++; continue; }
+    if (c === CH_RP) { depth--; i++; continue; }
+    if (c === CH_COMMA && depth === 0) { out.push(s, i); s = i + 1; i++; continue; }
+    i++;
+  }
+  out.push(s, to);
+  return out;
+}
+
+/* attributens gränser för instans i (cachas inte — anropa sparsamt) */
+function attrsOf(m, i, out) {
+  return splitAttrs(m.buf, m.pStart(i), m.pEnd(i), out || []);
+}
+
+/* trimma blanktecken i [s,e) */
+function trimRange(buf, s, e) {
+  while (s < e && isWs(buf[s])) s++;
+  while (e > s && isWs(buf[e - 1])) e--;
+  return [s, e];
+}
+
+/* citerad sträng i [s,e) -> JS-sträng, eller null */
+function quotedAt(buf, s, e) {
+  const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+  if (s >= e || buf[s] !== CH_QUOTE || buf[e - 1] !== CH_QUOTE) return null;
+  let out = '';
+  for (let i = s + 1; i < e - 1; i++) {
+    if (buf[i] === CH_QUOTE && i + 1 < e - 1 && buf[i + 1] === CH_QUOTE) { out += "'"; i++; continue; }
+    out += String.fromCharCode(buf[i]);
+  }
+  return out;
+}
+
+/* längden på citerad sträng utan att bygga JS-strängen (för GlobalId-test) */
+function quotedLen(buf, s, e) {
+  const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+  if (s >= e || buf[s] !== CH_QUOTE || buf[e - 1] !== CH_QUOTE) return -1;
+  let len = 0;
+  for (let i = s + 1; i < e - 1; i++) {
+    if (buf[i] === CH_QUOTE && i + 1 < e - 1 && buf[i + 1] === CH_QUOTE) { i++; }
+    len++;
+  }
+  return len;
+}
+
+/* enkel referens i [s,e) -> instansindex, annars -1 */
+function refAt(m, s, e) {
+  const buf = m.buf;
+  const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+  if (s >= e || buf[s] !== CH_HASH) return -1;
+  let id = 0, nd = 0, i = s + 1;
+  while (i < e && isDigit(buf[i])) { id = id * 10 + (buf[i] - CH_0); i++; nd++; }
+  if (nd === 0 || i !== e) return -1;
+  return m.idxOf(id);
+}
+
+/* alla referenser i en lista "(#1,#2,...)" -> array av instansindex */
+function refListAt(m, s, e) {
+  const buf = m.buf;
+  const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+  const out = [];
+  if (s >= e || buf[s] !== CH_LP) return out;
+  const inner = [];
+  splitAttrs(buf, s + 1, e - 1, inner);
+  for (let k = 0; k < inner.length; k += 2) {
+    const r = refAt(m, inner[k], inner[k + 1]);
+    if (r >= 0) out.push(r);
+  }
+  return out;
+}
+
+/* råtext för ett attribut (trimmat) */
+function attrText(m, s, e) {
+  const t = trimRange(m.buf, s, e);
+  return ascii(m.buf, t[0], t[1]);
+}
+
+/* ===== 20-types.js ===== */
+/* ==========================================================================
+   20-types.js  ·  IFC-kunskapen: kategorier, borttagningsregler, reparation
+   --------------------------------------------------------------------------
+   Allt är namnbaserat och schema-agnostiskt (IFC2X3 / IFC4 / IFC4X3), så
+   nya klasser i nyare scheman hanteras av samma regler.
+   ========================================================================== */
+
+/* --- kategorier för storleksrapporten ------------------------------------ */
+const CAT = {
+  PT: 0, BREP: 1, SWEPT: 2, TESS: 3, PROP: 4, QTY: 5, TYPE: 6, MAT: 7,
+  STYLE: 8, DRAW: 9, REL: 10, SPACE: 11, OPEN: 12, PLACE: 13, STRUCT: 14,
+  PROD: 15, OTHER: 16
+};
+const CAT_LABEL = [
+  'Punkter & riktningar', 'Ytor & skal (BREP)', 'Svepta solider', 'Tessellering (mesh)',
+  'Egenskaper (Pset)', 'Mängder', 'Typobjekt', 'Material', 'Stilar & färger',
+  '2D & annotation', 'Relationer', 'Rum & zoner', 'Öppningar', 'Placeringar',
+  'Projektstruktur', 'Byggdelar', 'Övrigt'
+];
+
+function has(s, sub) { return s.indexOf(sub) >= 0; }
+
+function categoryOf(t) {
+  if (t === 'IFCCARTESIANPOINT' || t === 'IFCDIRECTION' || t === 'IFCVECTOR' ||
+      t === 'IFCCARTESIANPOINTLIST2D' || t === 'IFCCARTESIANPOINTLIST3D') return CAT.PT;
+  if (t === 'IFCPOLYLOOP' || t === 'IFCFACE' || t === 'IFCFACEOUTERBOUND' || t === 'IFCFACEBOUND' ||
+      t === 'IFCCLOSEDSHELL' || t === 'IFCOPENSHELL' || t === 'IFCFACETEDBREP' ||
+      t === 'IFCADVANCEDBREP' || t === 'IFCCONNECTEDFACESET' || t === 'IFCFACESURFACE' ||
+      t === 'IFCSHELLBASEDSURFACEMODEL' || t === 'IFCFACEBASEDSURFACEMODEL' ||
+      t === 'IFCEDGELOOP' || t === 'IFCORIENTEDEDGE' || t === 'IFCEDGECURVE' ||
+      t === 'IFCVERTEXPOINT' || t === 'IFCADVANCEDFACE' || t === 'IFCVERTEXLOOP') return CAT.BREP;
+  if (has(t, 'AREASOLID') || t === 'IFCBOOLEANRESULT' || t === 'IFCBOOLEANCLIPPINGRESULT' ||
+      has(t, 'HALFSPACESOLID') || has(t, 'PROFILEDEF') || t === 'IFCSWEPTDISKSOLID' ||
+      t === 'IFCCSGSOLID' || t === 'IFCBLOCK' || t === 'IFCRECTANGULARPYRAMID' ||
+      t === 'IFCRIGHTCIRCULARCONE' || t === 'IFCRIGHTCIRCULARCYLINDER' ||
+      t === 'IFCSPHERE' || t === 'IFCEXTRUDEDAREASOLIDTAPERED') return CAT.SWEPT;
+  if (has(t, 'FACESET') || has(t, 'INDEXEDPOLY') || t === 'IFCINDEXEDPOLYGONALFACE' ||
+      t === 'IFCINDEXEDPOLYGONALFACEWITHVOIDS' || has(t, 'TESSELLATED')) return CAT.TESS;
+  if (t.startsWith('IFCPROPERTY') || t === 'IFCCOMPLEXPROPERTY' || t === 'IFCRELDEFINESBYPROPERTIES' ||
+      t === 'IFCEXTENDEDPROPERTIES' || t.startsWith('IFCSIMPLEPROPERTY')) return CAT.PROP;
+  if (t === 'IFCELEMENTQUANTITY' || t.startsWith('IFCQUANTITY') || t === 'IFCPHYSICALCOMPLEXQUANTITY') return CAT.QTY;
+  if (t === 'IFCRELDEFINESBYTYPE') return CAT.REL;
+  if (t.endsWith('TYPE') && !t.startsWith('IFCREL')) return CAT.TYPE;
+  if (t === 'IFCDOORSTYLE' || t === 'IFCWINDOWSTYLE' || t === 'IFCDOORLININGPROPERTIES' ||
+      t === 'IFCDOORPANELPROPERTIES' || t === 'IFCWINDOWLININGPROPERTIES' ||
+      t === 'IFCWINDOWPANELPROPERTIES') return CAT.TYPE;
+  if (t.startsWith('IFCMATERIAL')) return CAT.MAT;
+  if (has(t, 'STYLE') || t.startsWith('IFCCOLOUR') || has(t, 'TEXTURE') ||
+      t === 'IFCPRESENTATIONLAYERASSIGNMENT' || t === 'IFCPRESENTATIONLAYERWITHSTYLE' ||
+      t === 'IFCDRAUGHTINGPREDEFINEDCOLOUR' || t === 'IFCDRAUGHTINGPREDEFINEDCURVEFONT' ||
+      t === 'IFCINDEXEDCOLOURMAP') return CAT.STYLE;
+  if (t === 'IFCANNOTATION' || t === 'IFCGEOMETRICCURVESET' || t === 'IFCGEOMETRICSET' ||
+      has(t, 'TEXTLITERAL') || has(t, 'DIMENSIONCURVE') || t === 'IFCANNOTATIONFILLAREA' ||
+      t.startsWith('IFCDRAUGHTING') || t === 'IFCTERMINATORSYMBOL' || t === 'IFCPROJECTIONCURVE') return CAT.DRAW;
+  if (t === 'IFCSPACE' || t === 'IFCZONE' || t.startsWith('IFCRELSPACEBOUNDARY') ||
+      t === 'IFCRELCOVERSSPACES' || t === 'IFCSPATIALZONE') return CAT.SPACE;
+  if (t === 'IFCOPENINGELEMENT' || t === 'IFCOPENINGSTANDARDCASE' || t === 'IFCVOIDINGFEATURE' ||
+      t === 'IFCRELVOIDSELEMENT' || t === 'IFCRELFILLSELEMENT') return CAT.OPEN;
+  if (t === 'IFCLOCALPLACEMENT' || t === 'IFCAXIS2PLACEMENT2D' || t === 'IFCAXIS2PLACEMENT3D' ||
+      t === 'IFCGRIDPLACEMENT' || t === 'IFCCARTESIANTRANSFORMATIONOPERATOR3D' ||
+      t === 'IFCCARTESIANTRANSFORMATIONOPERATOR2D' ||
+      t === 'IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM') return CAT.PLACE;
+  if (t.startsWith('IFCREL')) return CAT.REL;
+  if (t === 'IFCPROJECT' || t === 'IFCSITE' || t === 'IFCBUILDING' || t === 'IFCBUILDINGSTOREY' ||
+      t === 'IFCUNITASSIGNMENT' || t.startsWith('IFCSIUNIT') || t.startsWith('IFCCONVERSIONBASED') ||
+      t.startsWith('IFCDERIVEDUNIT') || t.startsWith('IFCMEASUREWITHUNIT') ||
+      t === 'IFCOWNERHISTORY' || t === 'IFCPERSON' || t === 'IFCORGANIZATION' ||
+      t === 'IFCPERSONANDORGANIZATION' || t === 'IFCAPPLICATION' ||
+      t.startsWith('IFCGEOMETRICREPRESENTATIONCONTEXT') || t.startsWith('IFCGEOMETRICREPRESENTATIONSUB') ||
+      t === 'IFCPROJECTEDCRS' || t === 'IFCMAPCONVERSION' || t === 'IFCDIMENSIONALEXPONENTS') return CAT.STRUCT;
+  if (t === 'IFCPRODUCTDEFINITIONSHAPE' || t === 'IFCSHAPEREPRESENTATION' ||
+      t === 'IFCREPRESENTATIONMAP' || t === 'IFCMAPPEDITEM' || t === 'IFCTOPOLOGYREPRESENTATION' ||
+      t === 'IFCSHAPEASPECT') return CAT.PROD;
+  return CAT.OTHER;
+}
+
+/* --- vilka typer räknas som "byggdel" (för klasslistan i analysen) ------- */
+function isElementClass(t) {
+  if (t.startsWith('IFCREL') || t.endsWith('TYPE')) return false;
+  return ELEMENT_NAMES.has(t) || t === 'IFCBUILDINGELEMENTPROXY';
+}
+const ELEMENT_NAMES = new Set(('IFCWALL IFCWALLSTANDARDCASE IFCWALLELEMENTEDCASE IFCSLAB IFCSLABSTANDARDCASE ' +
+  'IFCSLABELEMENTEDCASE IFCBEAM IFCBEAMSTANDARDCASE IFCCOLUMN IFCCOLUMNSTANDARDCASE IFCMEMBER ' +
+  'IFCMEMBERSTANDARDCASE IFCPLATE IFCPLATESTANDARDCASE IFCDOOR IFCDOORSTANDARDCASE IFCWINDOW ' +
+  'IFCWINDOWSTANDARDCASE IFCSTAIR IFCSTAIRFLIGHT IFCRAMP IFCRAMPFLIGHT IFCROOF IFCCOVERING ' +
+  'IFCCURTAINWALL IFCRAILING IFCFOOTING IFCPILE IFCBUILDINGELEMENTPART IFCBUILDINGELEMENTPROXY ' +
+  'IFCDISCRETEACCESSORY IFCMECHANICALFASTENER IFCFASTENER IFCREINFORCINGBAR IFCREINFORCINGMESH ' +
+  'IFCREINFORCINGELEMENT IFCTENDON IFCTENDONANCHOR IFCFURNISHINGELEMENT IFCFURNITURE IFCSYSTEMFURNITUREELEMENT ' +
+  'IFCFLOWSEGMENT IFCFLOWFITTING IFCFLOWTERMINAL IFCFLOWCONTROLLER IFCFLOWMOVINGDEVICE ' +
+  'IFCFLOWSTORAGEDEVICE IFCFLOWTREATMENTDEVICE IFCENERGYCONVERSIONDEVICE IFCDISTRIBUTIONELEMENT ' +
+  'IFCDISTRIBUTIONFLOWELEMENT IFCDISTRIBUTIONCONTROLELEMENT IFCDISTRIBUTIONCHAMBERELEMENT ' +
+  'IFCDUCTSEGMENT IFCDUCTFITTING IFCPIPESEGMENT IFCPIPEFITTING IFCCABLECARRIERSEGMENT ' +
+  'IFCCABLECARRIERFITTING IFCCABLESEGMENT IFCCABLEFITTING IFCJUNCTIONBOX IFCLIGHTFIXTURE ' +
+  'IFCELECTRICAPPLIANCE IFCOUTLET IFCSWITCHINGDEVICE IFCSANITARYTERMINAL IFCAIRTERMINAL ' +
+  'IFCAIRTERMINALBOX IFCFAN IFCPUMP IFCVALVE IFCBOILER IFCCHILLER IFCCOIL IFCCOMPRESSOR ' +
+  'IFCCONDENSER IFCTANK IFCFILTER IFCDAMPER IFCSPACEHEATER IFCUNITARYEQUIPMENT ' +
+  'IFCELEMENTASSEMBLY IFCTRANSPORTELEMENT IFCPROXY IFCVIRTUALELEMENT IFCELEMENTCOMPONENT ' +
+  'IFCCIVILELEMENT IFCGEOGRAPHICELEMENT IFCCHIMNEY IFCSHADINGDEVICE IFCSTRUCTURALCURVEMEMBER ' +
+  'IFCSTRUCTURALSURFACEMEMBER IFCBEARING IFCDEEPFOUNDATION IFCKERB IFCPAVEMENT IFCRAIL ' +
+  'IFCCOURSE IFCEARTHWORKSFILL IFCEARTHWORKSCUT').split(' '));
+
+/* --- rotobjekt (IfcRoot: GlobalId + OwnerHistory) ------------------------
+   Vi upptäcker det strukturellt: attribut 1 är en 22 tecken lång sträng och
+   attribut 2 är antingen $ eller en referens.                              */
+function detectRoots(m, progress) {
+  const roots = new Uint8Array(m.n);
+  const buf = m.buf;
+  const tmp = [];
+  const step = Math.max(1, Math.floor(m.n / 20));
+
+  /* $ eller en ren referens */
+  const isNullOrRef = function (s, e) {
+    const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+    if (e - s === 1 && buf[s] === CH_DOLLAR) return true;
+    if (buf[s] !== CH_HASH || e - s < 2) return false;
+    for (let k = s + 1; k < e; k++) if (!isDigit(buf[k])) return false;
+    return true;
+  };
+  /* $ eller en citerad sträng */
+  const isNullOrStr = function (s, e) {
+    const t = trimRange(buf, s, e); s = t[0]; e = t[1];
+    if (e - s === 1 && buf[s] === CH_DOLLAR) return true;
+    return e - s >= 2 && buf[s] === CH_QUOTE && buf[e - 1] === CH_QUOTE;
+  };
+
+  for (let i = 0; i < m.n; i++) {
+    if (progress && (i % step) === 0) progress(i / m.n);
+    const e = m.pEnd(i);
+    let p = m.pStart(i);
+    if (e - p < 8) continue;
+    while (p < e && isWs(buf[p])) p++;
+    if (buf[p] !== CH_QUOTE) continue;      // GlobalId är alltid en sträng
+    splitAttrs(buf, m.pStart(i), e, tmp);
+    if (tmp.length < 8) continue;           // IfcRoot har minst 4 attribut
+    const gl = quotedLen(buf, tmp[0], tmp[1]);
+    if (gl < 8 || gl > 64) continue;
+    if (!isNullOrRef(tmp[2], tmp[3])) continue;    // OwnerHistory
+    if (!isNullOrStr(tmp[4], tmp[5])) continue;    // Name
+    if (!isNullOrStr(tmp[6], tmp[7])) continue;    // Description
+    roots[i] = 1;
+  }
+  return roots;
+}
+
+/* --- talpolicy: vilka typer får avrundas och med vilken skala ------------ */
+const ROUND_COORD = new Set(('IFCCARTESIANPOINT IFCCARTESIANPOINTLIST2D IFCCARTESIANPOINTLIST3D ' +
+  'IFCVECTOR IFCRECTANGLEPROFILEDEF IFCRECTANGLEHOLLOWPROFILEDEF IFCROUNDEDRECTANGLEPROFILEDEF ' +
+  'IFCCIRCLEPROFILEDEF IFCCIRCLEHOLLOWPROFILEDEF IFCELLIPSEPROFILEDEF IFCISHAPEPROFILEDEF ' +
+  'IFCASYMMETRICISHAPEPROFILEDEF IFCLSHAPEPROFILEDEF IFCTSHAPEPROFILEDEF IFCUSHAPEPROFILEDEF ' +
+  'IFCZSHAPEPROFILEDEF IFCCSHAPEPROFILEDEF IFCEXTRUDEDAREASOLID IFCCIRCLE IFCELLIPSE ' +
+  'IFCSPHERE IFCBLOCK IFCRIGHTCIRCULARCYLINDER IFCRIGHTCIRCULARCONE IFCRECTANGULARPYRAMID ' +
+  'IFCSWEPTDISKSOLID IFCOFFSETCURVE2D IFCOFFSETCURVE3D IFCPLANARBOX IFCBOUNDINGBOX').split(' '));
+const ROUND_RATIO = new Set(['IFCDIRECTION']);
+
+/* --- reparationsåtgärder ------------------------------------------------- */
+const ACT_RESURRECT = 0;   // okänd struktur: väck den döda referensen igen
+const ACT_PRUNE_KILL = 1;  // rensa listor; tom lista / död enkelreferens => dör själv
+const ACT_PRUNE_NULL = 2;  // rensa listor; tom lista / död enkelreferens => $
+const ACT_KILL = 3;        // dör om någon referens är död
+
+const ACT_TABLE = new Map();
+(function () {
+  const killList = ('IFCPRODUCTDEFINITIONSHAPE IFCSHAPEREPRESENTATION IFCSTYLEDREPRESENTATION ' +
+    'IFCTOPOLOGYREPRESENTATION IFCPRESENTATIONLAYERASSIGNMENT IFCPRESENTATIONLAYERWITHSTYLE ' +
+    'IFCFACE IFCFACESURFACE IFCADVANCEDFACE IFCCLOSEDSHELL IFCOPENSHELL IFCCONNECTEDFACESET ' +
+    'IFCPOLYLOOP IFCEDGELOOP IFCPOLYLINE IFCCOMPOSITECURVE IFCCOMPOSITECURVE2D ' +
+    'IFCSHELLBASEDSURFACEMODEL IFCFACEBASEDSURFACEMODEL IFCGEOMETRICCURVESET IFCGEOMETRICSET ' +
+    'IFCSTYLEDITEM IFCPRESENTATIONSTYLEASSIGNMENT IFCINDEXEDPOLYGONALFACE ' +
+    'IFCINDEXEDPOLYGONALFACEWITHVOIDS IFCPOLYGONALFACESET IFCTRIANGULATEDFACESET').split(' ');
+  for (const t of killList) ACT_TABLE.set(t, ACT_PRUNE_KILL);
+  const killIf = ('IFCMAPPEDITEM IFCREPRESENTATIONMAP IFCFACETEDBREP IFCFACEOUTERBOUND IFCFACEBOUND ' +
+    'IFCMATERIALDEFINITIONREPRESENTATION IFCMATERIALLAYERSETUSAGE IFCMATERIALPROFILESETUSAGE ' +
+    'IFCMATERIALLAYERSET IFCMATERIALPROFILESET IFCMATERIALCONSTITUENTSET IFCMATERIALLAYER ' +
+    'IFCMATERIALPROFILE IFCMATERIALCONSTITUENT IFCMATERIALLIST').split(' ');
+  for (const t of killIf) ACT_TABLE.set(t, ACT_KILL);
+  ACT_TABLE.set('IFCPROJECT', ACT_RESURRECT);
+})();
+
+function actionFor(t, isRoot) {
+  const a = ACT_TABLE.get(t);
+  if (a !== undefined) return a;
+  if (t.startsWith('IFCREL')) return ACT_PRUNE_KILL;
+  if (isRoot) return ACT_PRUNE_NULL;
+  return ACT_RESURRECT;
+}
+
+/* --- borttagningsgrupper -------------------------------------------------- */
+function inDropSet(t, o) {
+  if (o.dropPsets && (t.startsWith('IFCPROPERTY') || t === 'IFCCOMPLEXPROPERTY' ||
+      t === 'IFCEXTENDEDPROPERTIES' || t === 'IFCRELDEFINESBYPROPERTIES')) {
+    if (t === 'IFCPROPERTYSETTEMPLATE' || t === 'IFCPROPERTYTEMPLATE' ||
+        t === 'IFCSIMPLEPROPERTYTEMPLATE') return true;
+    return true;
+  }
+  if (o.dropQuantities && (t === 'IFCELEMENTQUANTITY' || t.startsWith('IFCQUANTITY') ||
+      t === 'IFCPHYSICALCOMPLEXQUANTITY')) return true;
+  if (o.dropTypes && (t === 'IFCRELDEFINESBYTYPE' || t === 'IFCDOORSTYLE' || t === 'IFCWINDOWSTYLE' ||
+      t === 'IFCDOORLININGPROPERTIES' || t === 'IFCDOORPANELPROPERTIES' ||
+      t === 'IFCWINDOWLININGPROPERTIES' || t === 'IFCWINDOWPANELPROPERTIES')) return true;
+  if (o.dropMaterials && t.startsWith('IFCMATERIAL')) return true;
+  if (o.dropMaterials && t === 'IFCRELASSOCIATESMATERIAL') return true;
+  if (o.dropStyles) {
+    if (t === 'IFCDOORSTYLE' || t === 'IFCWINDOWSTYLE') { /* typobjekt, inte stil */ }
+    else if (has(t, 'STYLE') || t.startsWith('IFCCOLOUR') || has(t, 'TEXTURE') ||
+             t === 'IFCDRAUGHTINGPREDEFINEDCOLOUR' || t === 'IFCDRAUGHTINGPREDEFINEDCURVEFONT' ||
+             t === 'IFCINDEXEDCOLOURMAP' || t === 'IFCCURVEFONT' || t === 'IFCCURVEFONTPATTERN') return true;
+  }
+  if (o.dropLayers && (t === 'IFCPRESENTATIONLAYERASSIGNMENT' || t === 'IFCPRESENTATIONLAYERWITHSTYLE')) return true;
+  if (o.dropClassifications && (t.startsWith('IFCCLASSIFICATION') || t.startsWith('IFCLIBRARY') ||
+      t.startsWith('IFCDOCUMENT') || t === 'IFCRELASSOCIATESCLASSIFICATION' ||
+      t === 'IFCRELASSOCIATESDOCUMENT' || t === 'IFCRELASSOCIATESLIBRARY' ||
+      t === 'IFCEXTERNALREFERENCERELATIONSHIP')) return true;
+  if (o.dropConnectivity && (t.startsWith('IFCRELCONNECTS') || t === 'IFCRELINTERFERESELEMENTS' ||
+      t === 'IFCCONNECTIONPOINTECCENTRICITY' || t === 'IFCCONNECTIONSURFACEGEOMETRY' ||
+      t === 'IFCCONNECTIONCURVEGEOMETRY' || t === 'IFCCONNECTIONPOINTGEOMETRY')) return true;
+  if (o.drop2D && (t === 'IFCANNOTATION' || t === 'IFCGEOMETRICCURVESET' ||
+      has(t, 'TEXTLITERAL') || has(t, 'DIMENSIONCURVE') || t === 'IFCANNOTATIONFILLAREA' ||
+      t === 'IFCANNOTATIONFILLAREAOCCURRENCE' || t.startsWith('IFCDRAUGHTINGCALLOUT') ||
+      t === 'IFCTERMINATORSYMBOL' || t === 'IFCPROJECTIONCURVE' || t === 'IFCANNOTATIONCURVEOCCURRENCE' ||
+      t === 'IFCANNOTATIONSURFACE' || t === 'IFCANNOTATIONTEXTOCCURRENCE')) return true;
+  if (o.dropGrids && (t === 'IFCGRID' || t === 'IFCGRIDAXIS' || t === 'IFCVIRTUALGRIDINTERSECTION')) return true;
+  if (o.dropSpaces && (t === 'IFCSPACE' || t === 'IFCSPACETYPE' || t === 'IFCZONE' ||
+      t.startsWith('IFCRELSPACEBOUNDARY') || t === 'IFCRELCOVERSSPACES' || t === 'IFCSPATIALZONE')) return true;
+  if (o.dropSpaceBoundaries && (t.startsWith('IFCRELSPACEBOUNDARY') || t === 'IFCRELCOVERSSPACES')) return true;
+  if (o.dropOpenings && (t === 'IFCOPENINGELEMENT' || t === 'IFCOPENINGSTANDARDCASE' ||
+      t === 'IFCVOIDINGFEATURE' || t === 'IFCRELVOIDSELEMENT' || t === 'IFCRELFILLSELEMENT')) return true;
+  return false;
+}
+
+/* Representationsidentifierare som räknas som 2D/hjälpgeometri.            */
+const DROP_REP_IDENT = new Set(['AXIS', 'FOOTPRINT', 'BOX', 'PROFILE', 'ANNOTATION', 'CLEARANCE',
+  'LIGHTING', 'COG', 'SURVEYPOINTS', 'AXIS2D', 'AXIS3D']);
+const DROP_REP_TYPE = new Set(['CURVE2D', 'ANNOTATION2D', 'GEOMETRICCURVESET']);
+
+/* ===== 30-strip.js ===== */
+/* ==========================================================================
+   30-strip.js  ·  borttagning, reparation av referenser, skräpsamling
+   --------------------------------------------------------------------------
+   Grundprincip: vi tar bara bort objekt vi vet hur vi lagar konsekvenserna
+   av. För allt okänt "återuppstår" det borttagna objektet i stället — filen
+   blir aldrig ogiltig, i värsta fall bara lite större än teoretiskt möjligt.
+   ========================================================================== */
+
+const GC_EXTRA_ROOTS = new Set(('IFCSTYLEDITEM IFCPRESENTATIONLAYERASSIGNMENT IFCPRESENTATIONLAYERWITHSTYLE ' +
+  'IFCMATERIALDEFINITIONREPRESENTATION IFCSHAPEASPECT IFCMAPCONVERSION IFCPROJECTEDCRS ' +
+  'IFCPRESENTATIONSTYLEASSIGNMENT').split(' '));
+
+function isGcRoot(t, isRoot) {
+  if (isRoot) return true;
+  if (GC_EXTRA_ROOTS.has(t)) return true;
+  if (t.endsWith('RELATIONSHIP')) return true;
+  if (t.startsWith('IFCINDEXED') && t.endsWith('MAP')) return true;
+  return false;
+}
+
+class StripState {
+  constructor(m, roots) {
+    this.m = m;
+    this.roots = roots;
+    this.alive = new Uint8Array(m.n).fill(1);
+    this.override = new Map();      // idx -> ny attributtext (utan yttre parenteser)
+    this.added = [];                // { type, params } — nya instanser
+    this.killedBy = new Map();      // orsak -> antal
+    this.killedType = new Map();    // typnamn -> antal
+    this.resurrected = 0;
+  }
+  kill(i, why) {
+    if (!this.alive[i]) return false;
+    this.alive[i] = 0;
+    this.killedBy.set(why, (this.killedBy.get(why) || 0) + 1);
+    const t = this.m.typeOf(i);
+    this.killedType.set(t, (this.killedType.get(t) || 0) + 1);
+    return true;
+  }
+  revive(i) {
+    if (this.alive[i]) return false;
+    this.alive[i] = 1;
+    this.resurrected++;
+    const t = this.m.typeOf(i);
+    const c = this.killedType.get(t);
+    if (c) { if (c === 1) this.killedType.delete(t); else this.killedType.set(t, c - 1); }
+    return true;
+  }
+  /* barnreferenser, med hänsyn till ev. överskriven attributtext */
+  children(i, out) {
+    out.length = 0;
+    const ov = this.override.get(i);
+    if (ov === undefined) {
+      const m = this.m, a = m.refOff[i], b = m.refOff[i + 1];
+      for (let k = a; k < b; k++) out.push(m.refIdx[k]);
+      return out;
+    }
+    const m = this.m;
+    for (let p = 0; p < ov.length; p++) {
+      const c = ov.charCodeAt(p);
+      if (c === CH_QUOTE) {
+        p++;
+        while (p < ov.length) {
+          if (ov.charCodeAt(p) === CH_QUOTE) {
+            if (p + 1 < ov.length && ov.charCodeAt(p + 1) === CH_QUOTE) { p += 2; continue; }
+            break;
+          }
+          p++;
+        }
+        continue;
+      }
+      if (c === CH_HASH) {
+        let q = p + 1, id = 0, nd = 0;
+        while (q < ov.length) { const d = ov.charCodeAt(q); if (d < CH_0 || d > CH_9) break; id = id * 10 + (d - CH_0); q++; nd++; }
+        if (nd > 0) { const t = m.idxOf(id); if (t >= 0) out.push(t); p = q - 1; }
+      }
+    }
+    return out;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Bygg om attributtexten för instans i, med döda referenser borttagna.
+   mode: 'kill' => tom obligatorisk lista signaleras, 'null' => blir $
+   -------------------------------------------------------------------------- */
+function pruneAttrs(m, st, i, mode) {
+  const buf = m.buf, alive = st.alive;
+  const attrs = [];
+  const src = st.override.get(i);
+  let parts;
+  if (src !== undefined) {
+    parts = splitStringAttrs(src);
+  } else {
+    splitAttrs(buf, m.pStart(i), m.pEnd(i), attrs);
+    parts = [];
+    for (let k = 0; k < attrs.length; k += 2) parts.push(ascii(buf, attrs[k], attrs[k + 1]));
+  }
+
+  let emptyList = false, deadSingle = false, changed = false;
+  const out = new Array(parts.length);
+
+  for (let a = 0; a < parts.length; a++) {
+    const raw = parts[a];
+    const s = raw.trim();
+    if (s.length === 0) { out[a] = raw; continue; }
+    if (s.charCodeAt(0) === CH_HASH) {
+      const id = parseInt(s.slice(1), 10);
+      const t = m.idxOf(id);
+      if (t >= 0 && !alive[t]) {
+        changed = true;
+        if (mode === 'kill') { deadSingle = true; out[a] = raw; }
+        else out[a] = '$';
+        continue;
+      }
+      out[a] = raw; continue;
+    }
+    if (s.charCodeAt(0) === CH_LP) {
+      const items = splitStringAttrs(s.slice(1, -1));
+      const keep = [];
+      let removed = false;
+      for (const it of items) {
+        const v = it.trim();
+        if (v.charCodeAt(0) === CH_HASH) {
+          const id = parseInt(v.slice(1), 10);
+          const t = m.idxOf(id);
+          if (t >= 0 && !alive[t]) { removed = true; continue; }
+        }
+        keep.push(it);
+      }
+      if (removed) {
+        changed = true;
+        if (keep.length === 0) {
+          if (mode === 'kill') { emptyList = true; out[a] = s; }
+          else out[a] = '$';
+        } else out[a] = '(' + keep.join(',') + ')';
+        continue;
+      }
+      out[a] = raw; continue;
+    }
+    out[a] = raw;
+  }
+
+  return { text: out.join(','), changed, emptyList, deadSingle };
+}
+
+/* dela en attributsträng på kommatecken i toppnivå */
+function splitStringAttrs(s) {
+  const out = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === CH_QUOTE) {
+      i++;
+      while (i < s.length) {
+        if (s.charCodeAt(i) === CH_QUOTE) {
+          if (i + 1 < s.length && s.charCodeAt(i + 1) === CH_QUOTE) { i++; }
+          else break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === CH_LP) depth++;
+    else if (c === CH_RP) depth--;
+    else if (c === CH_COMMA && depth === 0) { out.push(s.slice(start, i)); start = i + 1; }
+  }
+  out.push(s.slice(start));
+  return out;
+}
+
+/* finns döda referenser kvar i texten? */
+function hasDeadRef(m, st, text) {
+  for (let p = 0; p < text.length; p++) {
+    const c = text.charCodeAt(p);
+    if (c === CH_QUOTE) {
+      p++;
+      while (p < text.length) {
+        if (text.charCodeAt(p) === CH_QUOTE) {
+          if (p + 1 < text.length && text.charCodeAt(p + 1) === CH_QUOTE) { p += 2; continue; }
+          break;
+        }
+        p++;
+      }
+      continue;
+    }
+    if (c === CH_HASH) {
+      let q = p + 1, id = 0, nd = 0;
+      while (q < text.length) { const d = text.charCodeAt(q); if (d < CH_0 || d > CH_9) break; id = id * 10 + (d - CH_0); q++; nd++; }
+      if (nd > 0) {
+        const t = m.idxOf(id);
+        if (t >= 0 && !st.alive[t]) return true;
+        p = q - 1;
+      }
+    }
+  }
+  return false;
+}
+
+/* --------------------------------------------------------------------------
+   Steg 1: markera vad som ska bort enligt inställningarna
+   -------------------------------------------------------------------------- */
+function markDeaths(m, st, o, log) {
+  const roots = st.roots;
+  const n = m.n;
+  const dropClasses = o.dropClasses && o.dropClasses.length
+    ? new Set(o.dropClasses.map(function (x) { return x.toUpperCase(); })) : null;
+
+  /* beslut per typ (bara ~100 typer) i stället för per instans */
+  const nt = m.typeNames.length;
+  const decision = new Uint8Array(nt);   // 0=behåll 1=klass 2=typobjekt 3=urval
+  for (let t = 1; t < nt; t++) {
+    const name = m.typeNames[t];
+    if (dropClasses && dropClasses.has(name)) { decision[t] = 1; continue; }
+    if (o.dropTypes && name.endsWith('TYPE') && !name.startsWith('IFCREL')) { decision[t] = 2; continue; }
+    if (inDropSet(name, o)) { decision[t] = 3; continue; }
+  }
+  const WHY = ['', 'klass', 'typobjekt', 'urval'];
+  for (let i = 0; i < n; i++) {
+    const d = decision[m.tId[i]];
+    if (d === 0) continue;
+    if (d === 2 && !roots[i]) continue;      // typobjekt måste vara rotobjekt
+    st.kill(i, WHY[d]);
+  }
+
+  /* 2D-representationer: kolla identifierare och representationstyp */
+  if (o.drop2D) {
+    const attrs = [];
+    for (let i = 0; i < n; i++) {
+      if (!st.alive[i]) continue;
+      const t = m.typeOf(i);
+      if (t !== 'IFCSHAPEREPRESENTATION' && t !== 'IFCTOPOLOGYREPRESENTATION') continue;
+      splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+      if (attrs.length < 8) continue;
+      const ident = quotedAt(m.buf, attrs[2], attrs[3]);
+      const rtype = quotedAt(m.buf, attrs[4], attrs[5]);
+      const iu = ident ? ident.toUpperCase().replace(/[\s_-]/g, '') : '';
+      const ru = rtype ? rtype.toUpperCase().replace(/[\s_-]/g, '') : '';
+      if ((iu && DROP_REP_IDENT.has(iu)) || (ru && DROP_REP_TYPE.has(ru))) st.kill(i, '2D-representation');
+    }
+  }
+
+  /* Rum: flytta upp innehållet till våningen innan rummet tas bort */
+  if (o.dropSpaces) reparentSpaces(m, st, log);
+}
+
+function reparentSpaces(m, st, log) {
+  const n = m.n, attrs = [];
+  const parentOf = new Map();          // rumsindex -> förälderindex
+  for (let i = 0; i < n; i++) {
+    if (m.typeOf(i) !== 'IFCRELAGGREGATES') continue;
+    splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+    if (attrs.length < 12) continue;
+    const rel = refAt(m, attrs[8], attrs[9]);
+    if (rel < 0) continue;
+    const kids = refListAt(m, attrs[10], attrs[11]);
+    for (const k of kids) if (!st.alive[k] && m.typeOf(k) === 'IFCSPACE') parentOf.set(k, rel);
+  }
+  if (parentOf.size === 0) return;
+
+  let moved = 0;
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i]) continue;
+    const t = m.typeOf(i);
+    if (t === 'IFCRELCONTAINEDINSPATIALSTRUCTURE') {
+      splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+      if (attrs.length < 12) continue;
+      const struct = refAt(m, attrs[10], attrs[11]);
+      if (struct >= 0 && parentOf.has(struct)) {
+        const p = parentOf.get(struct);
+        let chain = 0;
+        let target = p;
+        while (!st.alive[target] && parentOf.has(target) && chain++ < 16) target = parentOf.get(target);
+        if (!st.alive[target]) continue;
+        const parts = [];
+        for (let k = 0; k < attrs.length; k += 2) parts.push(ascii(m.buf, attrs[k], attrs[k + 1]));
+        parts[5] = '#' + m.ids[target];
+        st.override.set(i, parts.join(','));
+        moved++;
+      }
+    } else if (t === 'IFCRELAGGREGATES') {
+      splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+      if (attrs.length < 12) continue;
+      const rel = refAt(m, attrs[8], attrs[9]);
+      if (rel >= 0 && parentOf.has(rel)) {
+        let target = parentOf.get(rel), chain = 0;
+        while (!st.alive[target] && parentOf.has(target) && chain++ < 16) target = parentOf.get(target);
+        if (!st.alive[target]) continue;
+        const parts = [];
+        for (let k = 0; k < attrs.length; k += 2) parts.push(ascii(m.buf, attrs[k], attrs[k + 1]));
+        parts[4] = '#' + m.ids[target];
+        st.override.set(i, parts.join(','));
+        moved++;
+      }
+    }
+  }
+  if (moved && log) log('Flyttade ' + fmtNum(moved) + ' relationer från rum till våningsplan.');
+}
+
+/* --------------------------------------------------------------------------
+   Steg 2: reparera referenser till fixpunkt
+   -------------------------------------------------------------------------- */
+function repairRefs(m, st, log, prog) {
+  const roots = st.roots;
+  const n = m.n;
+  let round = 0;
+  const kids = [];
+  for (;;) {
+    round++;
+    /* samla alla levande föräldrar som pekar på något dött */
+    const todo = new Set();
+    for (let i = 0; i < n; i++) {
+      if (st.alive[i]) continue;
+      const a = m.parOff[i], b = m.parOff[i + 1];
+      for (let k = a; k < b; k++) { const p = m.parIdx[k]; if (st.alive[p]) todo.add(p); }
+    }
+    /* överskrivna instanser kan ha nya referenser — kolla dem också */
+    for (const i of st.override.keys()) {
+      if (!st.alive[i]) continue;
+      st.children(i, kids);
+      for (const c of kids) if (!st.alive[c]) { todo.add(i); break; }
+    }
+    if (todo.size === 0) break;
+
+    let changes = 0;
+    for (const p of todo) {
+      if (!st.alive[p]) continue;
+      const t = m.typeOf(p);
+      const act = actionFor(t, !!roots[p]);
+      if (act === ACT_KILL) { if (st.kill(p, 'kedja')) changes++; continue; }
+      if (act === ACT_RESURRECT) {
+        st.children(p, kids);
+        const list = kids.slice();
+        for (const c of list) if (!st.alive[c]) { if (reviveTree(m, st, c)) changes++; }
+        continue;
+      }
+      const mode = (act === ACT_PRUNE_KILL) ? 'kill' : 'null';
+      const r = pruneAttrs(m, st, p, mode);
+      if (mode === 'kill' && (r.emptyList || r.deadSingle)) { if (st.kill(p, 'kedja')) changes++; continue; }
+      if (r.changed) {
+        if (hasDeadRef(m, st, r.text)) {
+          /* något vi inte förstod ligger djupare — väck det i stället */
+          st.children(p, kids);
+          const list = kids.slice();
+          for (const c of list) if (!st.alive[c]) { if (reviveTree(m, st, c)) changes++; }
+        } else {
+          st.override.set(p, r.text);
+          changes++;
+        }
+      }
+    }
+    if (prog) prog(Math.min(0.95, round / 6));
+    if (changes === 0) break;
+    if (round > 40) { if (log) log('Varning: reparationen nådde rundgräns.'); break; }
+  }
+}
+
+/* väck ett dött objekt och allt det pekar på */
+function reviveTree(m, st, start) {
+  if (st.alive[start]) return false;
+  const stack = [start];
+  let any = false;
+  const kids = [];
+  while (stack.length) {
+    const i = stack.pop();
+    if (st.alive[i]) continue;
+    st.revive(i); any = true;
+    st.children(i, kids);
+    for (const c of kids) if (!st.alive[c]) stack.push(c);
+  }
+  return any;
+}
+
+/* --------------------------------------------------------------------------
+   Steg 3: skräpsamling — allt som inte nås från ett rotobjekt
+   -------------------------------------------------------------------------- */
+function collectGarbage(m, st, log, prog) {
+  const roots = st.roots;
+  const n = m.n;
+  const seen = new Uint8Array(n);
+  const stack = [];
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i]) continue;
+    if (isGcRoot(m.typeOf(i), !!roots[i])) { seen[i] = 1; stack.push(i); }
+  }
+  const kids = [];
+  let processed = 0;
+  while (stack.length) {
+    const i = stack.pop();
+    processed++;
+    const ov = st.override.get(i);
+    if (ov === undefined) {
+      const a = m.refOff[i], b = m.refOff[i + 1];
+      for (let k = a; k < b; k++) {
+        const c = m.refIdx[k];
+        if (!seen[c] && st.alive[c]) { seen[c] = 1; stack.push(c); }
+      }
+    } else {
+      st.children(i, kids);
+      for (const c of kids) if (!seen[c] && st.alive[c]) { seen[c] = 1; stack.push(c); }
+    }
+    if (prog && (processed & 0xFFFF) === 0) prog(Math.min(0.9, processed / n));
+  }
+  /* Säkerhetsnät: skräpsamlingen bygger helt på att rotobjekten hittades.
+     Hittades inte ens IfcProject som rotobjekt är något fel med filen (eller
+     med vår igenkänning) och då rör vi ingenting. */
+  let aliveBefore = 0, wouldRemove = 0;
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i]) continue;
+    aliveBefore++;
+    if (!seen[i]) wouldRemove++;
+  }
+  const tProj = m.typeIds.get('IFCPROJECT');
+  let projOk = (tProj === undefined);
+  if (!projOk) {
+    for (let i = 0; i < n; i++) {
+      if (m.tId[i] === tProj && roots[i]) { projOk = true; break; }
+    }
+  }
+  if (!projOk || wouldRemove > aliveBefore * 0.9) {
+    if (log) {
+      log('VARNING: skräpsamlingen hoppas över — modellens rotobjekt kunde inte ' +
+          'kännas igen (' + fmtNum(wouldRemove) + ' av ' + fmtNum(aliveBefore) +
+          ' objekt hade tagits bort). Filen lämnas hellre större än trasig.');
+    }
+    return 0;
+  }
+  let removed = 0;
+  for (let i = 0; i < n; i++) {
+    if (st.alive[i] && !seen[i]) { st.kill(i, 'föräldralös'); removed++; }
+  }
+  if (log && removed) log('Skräpsamling: ' + fmtNum(removed) + ' oanvända objekt bort.');
+  return removed;
+}
+
+/* ===== 40-emit.js ===== */
+/* ==========================================================================
+   40-emit.js  ·  gemensam utskrift av attributtext
+   --------------------------------------------------------------------------
+   Samma kod används både när vi hashar instanser (dubblettsökning) och när
+   filen skrivs ut. Det garanterar att "lika enligt hashen" betyder exakt
+   "lika i utfilen".
+   ========================================================================== */
+
+class HashSink {
+  constructor() { this.h = hashInit(); }
+  reset() { this.h = hashInit(); return this; }
+  byte(b) { this.h = hashByte(this.h, b); }
+  raw(buf, from, to) { let h = this.h; for (let i = from; i < to; i++) { h ^= buf[i]; h = Math.imul(h, 0x01000193); } this.h = h; }
+  str(s) { this.h = hashStr(this.h, s); }
+  uint(v) { this.h = hashInt(this.h, v); }
+}
+
+class StrSink {
+  constructor() { this.parts = []; }
+  reset() { this.parts.length = 0; return this; }
+  byte(b) { this.parts.push(String.fromCharCode(b)); }
+  raw(buf, from, to) { this.parts.push(ascii(buf, from, to)); }
+  str(s) { this.parts.push(s); }
+  uint(v) { this.parts.push(String(v)); }
+  value() { return this.parts.join(''); }
+}
+
+function isNumStart(c) { return (c >= CH_0 && c <= CH_9) || c === CH_DOT || c === CH_MINUS || c === CH_PLUS; }
+function isNumChar(c) {
+  return (c >= CH_0 && c <= CH_9) || c === CH_DOT || c === CH_MINUS || c === CH_PLUS || c === CH_E || c === CH_e;
+}
+
+/* hoppa förbi en citerad sträng; p pekar på inledande ' */
+function skipQuotedFrom(buf, p, to) {
+  p++;
+  while (p < to) {
+    if (buf[p] === CH_QUOTE) {
+      if (p + 1 < to && buf[p + 1] === CH_QUOTE) { p += 2; continue; }
+      return p + 1;
+    }
+    p++;
+  }
+  return p;
+}
+
+/* --------------------------------------------------------------------------
+   Skriv attributtexten för instans i till sink.
+   ctx = { m, st, mapId(idx)->nummer, roundKind:Int8Array, coordDec, ratioDec }
+   -------------------------------------------------------------------------- */
+function emitParams(ctx, i, sink) {
+  const ov = ctx.st.override.get(i);
+  const kind = ctx.roundKind[ctx.m.tId[i]];
+  const dec = kind === 0 ? ctx.coordDec : (kind === 1 ? ctx.ratioDec : -1);
+  if (ov === undefined) {
+    emitBytes(ctx, ctx.m.buf, ctx.m.pStart(i), ctx.m.pEnd(i), dec, sink);
+  } else {
+    emitString(ctx, ov, dec, sink);
+  }
+}
+
+function emitBytes(ctx, buf, from, to, dec, sink) {
+  const m = ctx.m;
+  let p = from, run = from;
+  while (p < to) {
+    const c = buf[p];
+    if (c === CH_QUOTE) { p = skipQuotedFrom(buf, p, to); continue; }
+    if (c === CH_HASH) {
+      let q = p + 1, id = 0, nd = 0;
+      while (q < to && isDigit(buf[q])) { id = id * 10 + (buf[q] - CH_0); q++; nd++; }
+      if (nd > 0) {
+        if (p > run) sink.raw(buf, run, p);
+        const t = m.idxOf(id);
+        sink.byte(CH_HASH);
+        sink.uint(t >= 0 ? ctx.mapId(t) : id);
+        p = q; run = p; continue;
+      }
+      p++; continue;
+    }
+    if (dec >= 0 && isNumStart(c)) {
+      let q = p;
+      while (q < to && isNumChar(buf[q])) q++;
+      if (isRealToken(buf, p, q)) {
+        const d = decimalsOf(buf, p, q);
+        if (d < 0 || d > dec) {
+          if (p > run) sink.raw(buf, run, p);
+          const v = parseFloat(ascii(buf, p, q));
+          sink.str(fmtReal(v, dec));
+          p = q; run = p; continue;
+        }
+      }
+      p = q; continue;
+    }
+    p++;
+  }
+  if (p > run) sink.raw(buf, run, p);
+}
+
+function emitString(ctx, s, dec, sink) {
+  const m = ctx.m;
+  const L = s.length;
+  let p = 0, run = 0;
+  const flush = function (end) { if (end > run) sink.str(s.slice(run, end)); };
+  while (p < L) {
+    const c = s.charCodeAt(p);
+    if (c === CH_QUOTE) {
+      p++;
+      while (p < L) {
+        if (s.charCodeAt(p) === CH_QUOTE) {
+          if (p + 1 < L && s.charCodeAt(p + 1) === CH_QUOTE) { p += 2; continue; }
+          p++; break;
+        }
+        p++;
+      }
+      continue;
+    }
+    if (c === CH_HASH) {
+      let q = p + 1, id = 0, nd = 0;
+      while (q < L) { const d = s.charCodeAt(q); if (d < CH_0 || d > CH_9) break; id = id * 10 + (d - CH_0); q++; nd++; }
+      if (nd > 0) {
+        flush(p);
+        const t = m.idxOf(id);
+        sink.byte(CH_HASH);
+        sink.uint(t >= 0 ? ctx.mapId(t) : id);
+        p = q; run = p; continue;
+      }
+      p++; continue;
+    }
+    if (dec >= 0 && isNumStart(c)) {
+      let q = p;
+      while (q < L && isNumChar(s.charCodeAt(q))) q++;
+      const tok = s.slice(p, q);
+      if (/^[+-]?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?$/.test(tok) && /[.eE]/.test(tok)) {
+        const dotIdx = tok.indexOf('.');
+        const hasExp = /[eE]/.test(tok);
+        const nd = (dotIdx < 0 || hasExp) ? -1 : tok.length - dotIdx - 1;
+        if (nd < 0 || nd > dec) {
+          flush(p);
+          sink.str(fmtReal(parseFloat(tok), dec));
+          p = q; run = p; continue;
+        }
+      }
+      p = q; continue;
+    }
+    p++;
+  }
+  flush(p);
+}
+
+/* per typ: -1 = rör inga tal, 0 = koordinatprecision, 1 = riktningsprecision */
+function buildRoundKinds(m, enabled) {
+  const nt = m.typeNames.length;
+  const k = new Int8Array(nt).fill(-1);
+  if (!enabled) return k;
+  for (let t = 1; t < nt; t++) {
+    const name = m.typeNames[t];
+    if (ROUND_COORD.has(name)) k[t] = 0;
+    else if (ROUND_RATIO.has(name)) k[t] = 1;
+  }
+  return k;
+}
+
+/* ===== 50-dedup.js ===== */
+/* ==========================================================================
+   50-dedup.js  ·  rekursiv sammanslagning av identiska instanser
+   --------------------------------------------------------------------------
+   Samma idé som IfcToolbox' RE-strategi: börja underifrån, slå ihop allt som
+   är identiskt, gå sedan uppåt till de instanser vars barn ändrades och
+   upprepa till fixpunkt. Rotobjekt (med GlobalId) slås aldrig ihop.
+   ========================================================================== */
+
+/* find med vägkompression */
+function canonFind(canon, i) {
+  let r = i;
+  while (canon[r] !== r) r = canon[r];
+  while (canon[i] !== r) { const nx = canon[i]; canon[i] = r; i = nx; }
+  return r;
+}
+
+function radixOrder(hash, k) {
+  let src = new Uint32Array(k), dst = new Uint32Array(k);
+  for (let i = 0; i < k; i++) src[i] = i;
+  const cnt = new Uint32Array(257);
+  for (let shift = 0; shift < 32; shift += 8) {
+    cnt.fill(0);
+    for (let i = 0; i < k; i++) cnt[(((hash[src[i]] >>> shift) & 0xff) + 1)]++;
+    for (let b = 0; b < 256; b++) cnt[b + 1] += cnt[b];
+    for (let i = 0; i < k; i++) dst[cnt[(hash[src[i]] >>> shift) & 0xff]++] = src[i];
+    const t = src; src = dst; dst = t;
+  }
+  return src;
+}
+
+function unifyOwnerHistory(m, st, canon, log) {
+  let first = -1, merged = 0;
+  for (let i = 0; i < m.n; i++) {
+    if (!st.alive[i] || m.typeOf(i) !== 'IFCOWNERHISTORY') continue;
+    if (first < 0) { first = i; continue; }
+    canon[i] = first; st.alive[i] = 0; merged++;
+  }
+  if (merged && log) log('Slog ihop ' + fmtNum(merged + 1) + ' ägarhistoriker till en.');
+  return merged;
+}
+
+function dedupRecursive(m, st, o, log, prog) {
+  const roots = st.roots;
+  const n = m.n;
+  const canon = new Int32Array(n);
+  for (let i = 0; i < n; i++) canon[i] = i;
+
+  let merged = 0;
+  if (o.unifyOwnerHistory) merged += unifyOwnerHistory(m, st, canon, log);
+  if (!o.dedup) return { canon: canon, merged: merged, rounds: 0 };
+
+  const roundKind = buildRoundKinds(m, o.roundCoords);
+  const ctx = {
+    m: m, st: st, roundKind: roundKind,
+    coordDec: o.coordDec, ratioDec: o.ratioDec,
+    mapId: function (idx) { return canonFind(canon, idx); }
+  };
+  const hs = new HashSink();
+  const ss = new StrSink();
+
+  const eligible = new Uint8Array(n);
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i] || roots[i]) continue;
+    eligible[i] = 1; k++;
+  }
+  if (k === 0) return { canon: canon, merged: merged, rounds: 0 };
+
+  let cand = new Uint32Array(k);
+  { let w = 0; for (let i = 0; i < n; i++) if (eligible[i]) cand[w++] = i; }
+
+  let round = 0;
+  const texts = new Map();
+  while (cand.length > 0 && round < 24) {
+    round++;
+    const kc = cand.length;
+    const hash = new Uint32Array(kc);
+    for (let j = 0; j < kc; j++) {
+      const i = cand[j];
+      hs.reset();
+      hs.uint(m.tId[i]);
+      emitParams(ctx, i, hs);
+      hash[j] = hs.h >>> 0;
+      if (prog && (j & 0x3FFFF) === 0) prog(Math.min(0.9, j / kc));
+    }
+    const order = radixOrder(hash, kc);
+
+    let roundMerged = 0;
+    const touched = [];
+    let j = 0;
+    while (j < kc) {
+      let e = j + 1;
+      const h = hash[order[j]];
+      while (e < kc && hash[order[e]] === h) e++;
+      if (e - j > 1) {
+        texts.clear();
+        for (let x = j; x < e; x++) {
+          const i = cand[order[x]];
+          if (!st.alive[i]) continue;
+          ss.reset();
+          ss.str(m.typeOf(i));
+          ss.byte(CH_LP);
+          emitParams(ctx, i, ss);
+          const key = ss.value();
+          const rep = texts.get(key);
+          if (rep === undefined) { texts.set(key, i); continue; }
+          /* i är en dubblett av rep */
+          canon[i] = rep;
+          st.alive[i] = 0;
+          roundMerged++;
+          touched.push(i);
+        }
+      }
+      j = e;
+    }
+    merged += roundMerged;
+    if (log) log('Dubblettrunda ' + round + ': ' + fmtNum(roundMerged) + ' instanser sammanslagna.');
+    if (roundMerged === 0) break;
+
+    /* nästa runda: föräldrarna till det som slogs ihop */
+    const nextSet = new Set();
+    for (const i of touched) {
+      if (i >= n) continue;
+      const a = m.parOff[i], b = m.parOff[i + 1];
+      for (let x = a; x < b; x++) {
+        const p = m.parIdx[x];
+        if (eligible[p] && st.alive[p]) nextSet.add(p);
+      }
+    }
+    cand = new Uint32Array(nextSet.size);
+    { let w = 0; for (const v of nextSet) cand[w++] = v; }
+  }
+  return { canon: canon, merged: merged, rounds: round };
+}
+
+/* ===== 60-geom.js ===== */
+/* ==========================================================================
+   60-geom.js  ·  geometrioptimering
+   --------------------------------------------------------------------------
+   1. Koplanär sammanslagning av BREP-ytor (förlustfri): trianglar som ligger
+      i samma plan smälts till en enda yta med hål där det behövs. Varje skal
+      valideras — summan av triangelareorna måste stämma med den nya ytans
+      area, annars lämnas skalet orört.
+   2. Svetsning av tessellerade punktlistor (IFC4).
+   3. Ersättning av mesh med omslutande låda (aggressivt läge).
+   ========================================================================== */
+
+/* --- utöka modellen med nya instanser ------------------------------------ */
+function ensureCapacity(m, st, extra) {
+  const need = m.n + extra;
+  if (m.ids.length >= need) return;
+  const cap = Math.max(need, m.ids.length + (m.ids.length >> 1) + 64);
+  const g32 = function (a) { const b = new Uint32Array(cap); b.set(a); return b; };
+  m.ids = g32(m.ids); m.sOff = g32(m.sOff); m.pOff = g32(m.pOff); m.eOff = g32(m.eOff);
+  const t16 = new Uint16Array(cap); t16.set(m.tId); m.tId = t16;
+  const a8 = new Uint8Array(cap); a8.set(st.alive); st.alive = a8;
+  const r8 = new Uint8Array(cap); r8.set(st.roots); st.roots = r8;
+}
+
+function internType(m, name) {
+  let t = m.typeIds.get(name);
+  if (t === undefined) { t = m.typeNames.length; m.typeNames.push(name); m.typeIds.set(name, t); }
+  return t;
+}
+
+function addInstance(m, st, typeName, paramsStr) {
+  ensureCapacity(m, st, 1);
+  const i = m.n++;
+  const id = ++m.maxId;
+  m.ids[i] = id; m.sOff[i] = 0; m.pOff[i] = 0; m.eOff[i] = 0;
+  m.tId[i] = internType(m, typeName);
+  st.alive[i] = 1; st.roots[i] = 0;
+  st.override.set(i, paramsStr);
+  if (!m._extra) m._extra = new Map();
+  m._extra.set(id, i + 1);
+  return i;
+}
+
+/* --- koordinatcache ------------------------------------------------------- */
+function buildPointCache(m, st, o, prog) {
+  const n = m.n;
+  const slot = new Int32Array(n).fill(-1);
+  let cnt = 0;
+  const ptType = m.typeIds.get('IFCCARTESIANPOINT');
+  if (ptType === undefined) return { slot: slot, X: new Float64Array(0), Y: new Float64Array(0), Z: new Float64Array(0), owner: new Int32Array(0), count: 0 };
+  for (let i = 0; i < n; i++) if (st.alive[i] && m.tId[i] === ptType) cnt++;
+  const X = new Float64Array(cnt), Y = new Float64Array(cnt), Z = new Float64Array(cnt);
+  const owner = new Int32Array(cnt);
+  const scale = o.roundCoords ? Math.pow(10, o.coordDec) : 0;
+  const attrs = [];
+  let w = 0;
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i] || m.tId[i] !== ptType) continue;
+    const s = m.pStart(i), e = m.pEnd(i);
+    /* attributlistan är ((x,y,z)) — plocka den inre listan */
+    let p = s; while (p < e && m.buf[p] !== CH_LP) p++;
+    const inner = [];
+    if (p < e) {
+      const close = skipGroup(m.buf, p, e + 1);
+      if (close > 0) splitAttrs(m.buf, p + 1, close - 1, inner);
+    }
+    let x = 0, y = 0, z = 0;
+    if (inner.length >= 2) x = parseFloat(attrText(m, inner[0], inner[1])) || 0;
+    if (inner.length >= 4) y = parseFloat(attrText(m, inner[2], inner[3])) || 0;
+    if (inner.length >= 6) z = parseFloat(attrText(m, inner[4], inner[5])) || 0;
+    if (scale) { x = Math.round(x * scale) / scale; y = Math.round(y * scale) / scale; z = Math.round(z * scale) / scale; }
+    X[w] = x; Y[w] = y; Z[w] = z; owner[w] = i;
+    slot[i] = w; w++;
+    if (prog && (w & 0x1FFFF) === 0) prog(w / Math.max(cnt, 1));
+  }
+  return { slot: slot, X: X, Y: Y, Z: Z, owner: owner, count: w };
+}
+
+/* --- koplanär sammanslagning --------------------------------------------- */
+const EDGE_SHIFT = 67108864;   // 2^26
+
+function mergeCoplanarFaces(m, st, o, log, prog) {
+  const res = { shells: 0, shellsMerged: 0, shellsSkipped: 0, facesBefore: 0, facesAfter: 0, added: 0, removedEntities: 0 };
+  const tShellClosed = m.typeIds.get('IFCCLOSEDSHELL');
+  const tShellOpen = m.typeIds.get('IFCOPENSHELL');
+  const tFace = m.typeIds.get('IFCFACE');
+  const tLoop = m.typeIds.get('IFCPOLYLOOP');
+  if (tFace === undefined || tLoop === undefined) return res;
+  if (tShellClosed === undefined && tShellOpen === undefined) return res;
+
+  const pc = buildPointCache(m, st, o, null);
+  if (pc.count === 0) return res;
+
+  const shells = [];
+  for (let i = 0; i < m.n; i++) {
+    if (!st.alive[i]) continue;
+    const t = m.tId[i];
+    if (t === tShellClosed || t === tShellOpen) shells.push(i);
+  }
+  res.shells = shells.length;
+  if (!shells.length) return res;
+
+  const attrs = [];
+  const unit = o.coordDec > 0 ? Math.pow(10, -o.coordDec) : 1e-6;
+  const areaTol = Math.max(1e-9, unit * unit * 4);
+
+  for (let s = 0; s < shells.length; s++) {
+    const sh = shells[s];
+    splitAttrs(m.buf, m.pStart(sh), m.pEnd(sh), attrs);
+    const faces = refListAt(m, attrs[0], attrs[1]);
+    if (faces.length < 4) continue;
+
+    /* --- läs in alla ytor --- */
+    const fv = [];            // [{verts:[slot..], nx,ny,nz,d, area}]
+    let bad = false;
+    for (let fi = 0; fi < faces.length; fi++) {
+      const f = faces[fi];
+      if (!st.alive[f] || m.tId[f] !== tFace) { bad = true; break; }
+      const fa = [];
+      splitAttrs(m.buf, m.pStart(f), m.pEnd(f), fa);
+      const bounds = refListAt(m, fa[0], fa[1]);
+      if (bounds.length !== 1) { bad = true; break; }
+      const b = bounds[0];
+      if (!st.alive[b]) { bad = true; break; }
+      const ba = [];
+      splitAttrs(m.buf, m.pStart(b), m.pEnd(b), ba);
+      const loop = refAt(m, ba[0], ba[1]);
+      if (loop < 0 || m.tId[loop] !== tLoop) { bad = true; break; }
+      let orient = true;
+      if (ba.length >= 4) {
+        const ot = attrText(m, ba[2], ba[3]);
+        if (ot === '.F.') orient = false;
+      }
+      const la = [];
+      splitAttrs(m.buf, m.pStart(loop), m.pEnd(loop), la);
+      const pts = refListAt(m, la[0], la[1]);
+      if (pts.length < 3) { bad = true; break; }
+      const verts = new Array(pts.length);
+      for (let k = 0; k < pts.length; k++) {
+        const sl = pc.slot[pts[k]];
+        if (sl < 0) { bad = true; break; }
+        verts[k] = sl;
+      }
+      if (bad) break;
+      if (!orient) verts.reverse();
+      const pl = planeOf(pc, verts);
+      if (!pl) { bad = true; break; }
+      fv.push({ verts: verts, nx: pl[0], ny: pl[1], nz: pl[2], d: pl[3], area: pl[4], face: f });
+    }
+    if (bad || fv.length < 4) { res.shellsSkipped++; continue; }
+    res.facesBefore += fv.length;
+
+    /* --- gruppera per plan --- */
+    const groups = new Map();
+    for (const f of fv) {
+      const key = qz(f.nx) + '|' + qz(f.ny) + '|' + qz(f.nz);
+      let g = groups.get(key);
+      if (!g) { g = []; groups.set(key, g); }
+      g.push(f);
+    }
+
+    const keptFaces = [];       // befintliga ytindex som behålls
+    const newFaceRefs = [];     // {pendingIndex}
+    let mergedAny = false;
+
+    for (const g of groups.values()) {
+      if (g.length < 2) { for (const f of g) keptFaces.push(f.face); continue; }
+      /* klustra på planavstånd d */
+      g.sort(function (a, b) { return a.d - b.d; });
+      let start = 0;
+      const dTol = Math.max(unit * 2, 1e-7 * (Math.abs(g[0].d) + 1));
+      for (let i = 1; i <= g.length; i++) {
+        if (i < g.length && Math.abs(g[i].d - g[i - 1].d) <= dTol) continue;
+        const cluster = g.slice(start, i);
+        start = i;
+        if (cluster.length < 2) { keptFaces.push(cluster[0].face); continue; }
+        const out = mergePlaneCluster(pc, cluster, areaTol);
+        if (!out) { for (const f of cluster) keptFaces.push(f.face); continue; }
+        /* vinstkontroll: nya instanser mot gamla */
+        let newEnt = 0;
+        for (const fc of out) newEnt += 1 + 2 * (1 + fc.holes.length);
+        const oldEnt = cluster.length * 3;
+        if (newEnt >= oldEnt) { for (const f of cluster) keptFaces.push(f.face); continue; }
+        for (const fc of out) {
+          const boundIds = [];
+          boundIds.push(emitLoopBound(m, st, pc, fc.outer, 'IFCFACEOUTERBOUND'));
+          for (const h of fc.holes) boundIds.push(emitLoopBound(m, st, pc, h, 'IFCFACEBOUND'));
+          newFaceRefs.push({ bounds: boundIds });
+        }
+        mergedAny = true;
+        res.removedEntities += oldEnt;
+      }
+    }
+
+    if (!mergedAny) { res.shellsSkipped++; res.facesAfter += fv.length; continue; }
+
+    /* skapa de nya ytorna och skriv om skalet */
+    const faceIds = [];
+    for (const f of keptFaces) faceIds.push('#' + m.ids[f]);
+    for (const nf of newFaceRefs) {
+      const fi = addInstance(m, st, 'IFCFACE', '(' + nf.bounds.join(',') + ')');
+      faceIds.push('#' + m.ids[fi]);
+      res.added++;
+    }
+    st.override.set(sh, '(' + faceIds.join(',') + ')');
+    res.shellsMerged++;
+    res.facesAfter += faceIds.length;
+    if (prog) prog(s / shells.length);
+  }
+  if (log && res.shellsMerged) {
+    log('Koplanära ytor: ' + fmtNum(res.facesBefore) + ' -> ' + fmtNum(res.facesAfter) +
+        ' ytor i ' + fmtNum(res.shellsMerged) + ' skal.');
+  }
+  if (log && res.shellsSkipped) log('Lämnade ' + fmtNum(res.shellsSkipped) + ' skal orörda (kunde inte valideras).');
+  return res;
+}
+
+function qz(v) { return Math.round(v * 10000) / 10000; }
+
+/* plan ur en orienterad loop: [nx,ny,nz,d,area] */
+function planeOf(pc, verts) {
+  const X = pc.X, Y = pc.Y, Z = pc.Z;
+  let nx = 0, ny = 0, nz = 0;
+  const L = verts.length;
+  for (let i = 0; i < L; i++) {
+    const a = verts[i], b = verts[(i + 1) % L];
+    nx += (Y[a] - Y[b]) * (Z[a] + Z[b]);
+    ny += (Z[a] - Z[b]) * (X[a] + X[b]);
+    nz += (X[a] - X[b]) * (Y[a] + Y[b]);
+  }
+  const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  if (!(len > 0)) return null;
+  const area = len / 2;
+  nx /= len; ny /= len; nz /= len;
+  const a0 = verts[0];
+  const d = nx * X[a0] + ny * Y[a0] + nz * Z[a0];
+  return [nx, ny, nz, d, area];
+}
+
+/* slå ihop ett kluster av koplanära ytor. Returnerar [{outer:[v..],holes:[[v..]]}] eller null */
+function mergePlaneCluster(pc, cluster, areaTol) {
+  const edges = new Map();
+  let areaSum = 0;
+  for (const f of cluster) {
+    areaSum += f.area;
+    const v = f.verts, L = v.length;
+    for (let i = 0; i < L; i++) {
+      const a = v[i], b = v[(i + 1) % L];
+      if (a === b) return null;
+      const kf = a * EDGE_SHIFT + b;
+      const kr = b * EDGE_SHIFT + a;
+      const cr = edges.get(kr);
+      if (cr) {
+        if (cr === 1) edges.delete(kr); else edges.set(kr, cr - 1);
+        continue;
+      }
+      const cf = edges.get(kf);
+      if (cf) return null;                 // samma riktade kant två gånger => icke-manifold
+      edges.set(kf, 1);
+    }
+  }
+  if (edges.size < 3) return null;
+
+  /* utgående kanter per hörn */
+  const outAdj = new Map();
+  for (const key of edges.keys()) {
+    const a = Math.floor(key / EDGE_SHIFT);
+    const b = key - a * EDGE_SHIFT;
+    if (outAdj.has(a)) return null;        // förgrening => hoppa över gruppen
+    outAdj.set(a, b);
+  }
+
+  /* spåra slingor */
+  const loops = [];
+  const used = new Set();
+  for (const startV of outAdj.keys()) {
+    if (used.has(startV)) continue;
+    const loop = [];
+    let v = startV, guard = 0;
+    while (guard++ <= outAdj.size + 1) {
+      if (used.has(v)) { if (v === startV && loop.length) break; return null; }
+      used.add(v); loop.push(v);
+      const nx = outAdj.get(v);
+      if (nx === undefined) return null;
+      if (nx === startV) break;
+      v = nx;
+    }
+    if (loop.length < 3) return null;
+    loops.push(loop);
+  }
+  if (!loops.length) return null;
+  if (used.size !== outAdj.size) return null;
+
+  const n = [cluster[0].nx, cluster[0].ny, cluster[0].nz];
+  const info = [];
+  let sum = 0;
+  for (const lp of loops) {
+    const a = signedArea(pc, lp, n);
+    sum += a;
+    info.push({ loop: lp, area: a });
+  }
+  if (Math.abs(sum - areaSum) > Math.max(areaTol, Math.abs(areaSum) * 1e-6)) return null;
+
+  const pos = info.filter(function (x) { return x.area > 0; });
+  const neg = info.filter(function (x) { return x.area <= 0; });
+  if (!pos.length) return null;
+
+  const out = [];
+  if (pos.length === 1) {
+    out.push({ outer: simplify(pc, pos[0].loop), holes: neg.map(function (x) { return simplify(pc, x.loop); }) });
+  } else {
+    const ax = dominantAxis(n);
+    void ax;
+    const buckets = pos.map(function (p) { return { outer: p.loop, holes: [] }; });
+    for (const h of neg) {
+      let hit = -1;
+      for (let k = 0; k < pos.length; k++) {
+        if (pointInLoop(pc, h.loop[0], pos[k].loop, ax)) { if (hit >= 0) return null; hit = k; }
+      }
+      if (hit < 0) return null;
+      buckets[hit].holes.push(h.loop);
+    }
+    for (const b of buckets) out.push({ outer: simplify(pc, b.outer), holes: b.holes.map(function (h) { return simplify(pc, h); }) });
+  }
+  for (const f of out) if (f.outer.length < 3) return null;
+  return out;
+}
+
+function signedArea(pc, loop, n) {
+  const X = pc.X, Y = pc.Y, Z = pc.Z;
+  let cx = 0, cy = 0, cz = 0;
+  const L = loop.length;
+  for (let i = 0; i < L; i++) {
+    const a = loop[i], b = loop[(i + 1) % L];
+    cx += Y[a] * Z[b] - Z[a] * Y[b];
+    cy += Z[a] * X[b] - X[a] * Z[b];
+    cz += X[a] * Y[b] - Y[a] * X[b];
+  }
+  return 0.5 * (cx * n[0] + cy * n[1] + cz * n[2]);
+}
+
+function dominantAxis(n) {
+  const ax = Math.abs(n[0]), ay = Math.abs(n[1]), az = Math.abs(n[2]);
+  if (ax >= ay && ax >= az) return 0;
+  return ay >= az ? 1 : 2;
+}
+
+function proj(pc, v, ax) {
+  if (ax === 0) return [pc.Y[v], pc.Z[v]];
+  if (ax === 1) return [pc.Z[v], pc.X[v]];
+  return [pc.X[v], pc.Y[v]];
+}
+
+function pointInLoop(pc, v, loop, ax) {
+  const p = proj(pc, v, ax);
+  let inside = false;
+  for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const a = proj(pc, loop[i], ax), b = proj(pc, loop[j], ax);
+    if (((a[1] > p[1]) !== (b[1] > p[1])) &&
+        (p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0])) inside = !inside;
+  }
+  return inside;
+}
+
+/* ta bort kollineära hörn (arean är oförändrad) */
+function simplify(pc, loop) {
+  const X = pc.X, Y = pc.Y, Z = pc.Z;
+  let cur = loop.slice();
+  let changed = true;
+  while (changed && cur.length > 3) {
+    changed = false;
+    const out = [];
+    const L = cur.length;
+    for (let i = 0; i < L; i++) {
+      const p = cur[(i - 1 + L) % L], v = cur[i], q = cur[(i + 1) % L];
+      const ax = X[v] - X[p], ay = Y[v] - Y[p], az = Z[v] - Z[p];
+      const bx = X[q] - X[v], by = Y[q] - Y[v], bz = Z[q] - Z[v];
+      const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+      const cross = Math.sqrt(cx * cx + cy * cy + cz * cz);
+      const la = Math.sqrt(ax * ax + ay * ay + az * az), lb = Math.sqrt(bx * bx + by * by + bz * bz);
+      const dot = ax * bx + ay * by + az * bz;
+      if (la > 0 && lb > 0 && cross <= 1e-9 * la * lb && dot > 0 && out.length + (L - i - 1) >= 3) {
+        changed = true; continue;          // hoppa över v
+      }
+      out.push(v);
+    }
+    if (out.length < 3) break;
+    cur = out;
+  }
+  return cur;
+}
+
+function emitLoopBound(m, st, pc, loop, boundType) {
+  const ids = new Array(loop.length);
+  for (let i = 0; i < loop.length; i++) ids[i] = '#' + m.ids[pc.owner[loop[i]]];
+  /* observera: override-texten ar attributlistan UTAN yttre parenteser */
+  const lp = addInstance(m, st, 'IFCPOLYLOOP', '(' + ids.join(',') + ')');
+  const bd = addInstance(m, st, boundType, '#' + m.ids[lp] + ',.T.');
+  return '#' + m.ids[bd];
+}
+
+/* ===== 62-tess.js ===== */
+/* ==========================================================================
+   62-tess.js  ·  tessellerad geometri (IFC4) + omslutande lådor
+   --------------------------------------------------------------------------
+   weldPointLists  — kvantiserar och svetsar ihop sammanfallande hörn i
+                     IfcCartesianPointList och räknar om indexlistorna.
+   boxifyGeometry  — byter ut mesh / BREP mot en extruderad låda (aggressivt).
+   ========================================================================== */
+
+/* läs en talmatris "((1.,2.,3.),(4.,5.,6.))" -> {rows:[[..]], ok} */
+function readCoordList(m, i) {
+  const buf = m.buf;
+  const attrs = [];
+  splitAttrs(buf, m.pStart(i), m.pEnd(i), attrs);
+  if (attrs.length < 2) return null;
+  const t = trimRange(buf, attrs[0], attrs[1]);
+  if (buf[t[0]] !== CH_LP) return null;
+  const items = [];
+  splitAttrs(buf, t[0] + 1, t[1] - 1, items);
+  const rows = new Array(items.length / 2);
+  for (let k = 0; k < items.length; k += 2) {
+    const r = trimRange(buf, items[k], items[k + 1]);
+    if (buf[r[0]] !== CH_LP) return null;
+    const nums = [];
+    splitAttrs(buf, r[0] + 1, r[1] - 1, nums);
+    const row = new Array(nums.length / 2);
+    for (let q = 0; q < nums.length; q += 2) row[q / 2] = parseFloat(attrText(m, nums[q], nums[q + 1])) || 0;
+    rows[k / 2] = row;
+  }
+  return rows;
+}
+
+/* läs en heltalsmatris "((1,2,3),(4,5,6))" */
+function readIndexList(m, i, attrIndex) {
+  const buf = m.buf;
+  const attrs = [];
+  splitAttrs(buf, m.pStart(i), m.pEnd(i), attrs);
+  if (attrs.length < (attrIndex + 1) * 2) return null;
+  const t = trimRange(buf, attrs[attrIndex * 2], attrs[attrIndex * 2 + 1]);
+  if (buf[t[0]] !== CH_LP) return null;
+  const items = [];
+  splitAttrs(buf, t[0] + 1, t[1] - 1, items);
+  const rows = [];
+  for (let k = 0; k < items.length; k += 2) {
+    const r = trimRange(buf, items[k], items[k + 1]);
+    if (buf[r[0]] === CH_LP) {
+      const nums = [];
+      splitAttrs(buf, r[0] + 1, r[1] - 1, nums);
+      const row = new Array(nums.length / 2);
+      for (let q = 0; q < nums.length; q += 2) row[q / 2] = parseInt(attrText(m, nums[q], nums[q + 1]), 10);
+      rows.push(row);
+    } else {
+      rows.push([parseInt(attrText(m, r[0], r[1]), 10)]);
+    }
+  }
+  return rows;
+}
+
+function fmtRows(rows, dec) {
+  const parts = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i], p = new Array(r.length);
+    for (let k = 0; k < r.length; k++) p[k] = fmtReal(r[k], dec);
+    parts[i] = '(' + p.join(',') + ')';
+  }
+  return '(' + parts.join(',') + ')';
+}
+function fmtIntRows(rows) {
+  const parts = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) parts[i] = '(' + rows[i].join(',') + ')';
+  return '(' + parts.join(',') + ')';
+}
+
+/* --------------------------------------------------------------------------
+   Svetsning av punktlistor
+   -------------------------------------------------------------------------- */
+function weldPointLists(m, st, o, log, prog) {
+  const res = { lists: 0, before: 0, after: 0, degenerate: 0 };
+  const tPL3 = m.typeIds.get('IFCCARTESIANPOINTLIST3D');
+  if (tPL3 === undefined) return res;
+  const dec = o.weldDec !== undefined && o.weldDec !== null ? o.weldDec : o.coordDec;
+  const attrs = [];
+
+  const lists = [];
+  for (let i = 0; i < m.n; i++) if (st.alive[i] && m.tId[i] === tPL3) lists.push(i);
+  if (!lists.length) return res;
+
+  for (let li = 0; li < lists.length; li++) {
+    const pl = lists[li];
+    const rows = readCoordList(m, pl);
+    if (!rows || rows.length < 4) continue;
+
+    /* vilka konsumenter finns? bara svetsa när vi förstår alla */
+    const parents = [];
+    const a = m.parOff[pl], b = m.parOff[pl + 1];
+    let understood = true;
+    for (let k = a; k < b; k++) {
+      const p = m.parIdx[k];
+      if (!st.alive[p]) continue;
+      const t = m.typeOf(p);
+      if (t === 'IFCTRIANGULATEDFACESET' || t === 'IFCPOLYGONALFACESET') parents.push(p);
+      else { understood = false; break; }
+    }
+    if (!understood || !parents.length) continue;
+
+    /* PnIndex gör indexeringen indirekt — då rör vi den inte */
+    let indirect = false;
+    for (const p of parents) {
+      splitAttrs(m.buf, m.pStart(p), m.pEnd(p), attrs);
+      const t = m.typeOf(p);
+      const pnAt = (t === 'IFCTRIANGULATEDFACESET') ? 4 : 3;
+      if (attrs.length >= (pnAt + 1) * 2) {
+        const tx = attrText(m, attrs[pnAt * 2], attrs[pnAt * 2 + 1]);
+        if (tx !== '$' && tx !== '') indirect = true;
+      }
+    }
+    if (indirect) continue;
+
+    const scale = Math.pow(10, dec);
+    const seen = new Map();
+    const remap = new Int32Array(rows.length + 1);
+    const kept = [];
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      const x = Math.round((row[0] || 0) * scale) / scale;
+      const y = Math.round((row[1] || 0) * scale) / scale;
+      const z = Math.round((row[2] || 0) * scale) / scale;
+      const key = x + ',' + y + ',' + z;
+      let at = seen.get(key);
+      if (at === undefined) { kept.push([x, y, z]); at = kept.length; seen.set(key, at); }
+      remap[r + 1] = at;
+    }
+    if (kept.length === rows.length) continue;      // inget att vinna
+
+    res.lists++; res.before += rows.length; res.after += kept.length;
+    st.override.set(pl, fmtRows(kept, dec));
+
+    for (const p of parents) {
+      const t = m.typeOf(p);
+      const parts = [];
+      splitAttrs(m.buf, m.pStart(p), m.pEnd(p), attrs);
+      for (let k = 0; k < attrs.length; k += 2) parts.push(ascii(m.buf, attrs[k], attrs[k + 1]));
+      if (t === 'IFCTRIANGULATEDFACESET') {
+        const idx = readIndexList(m, p, 3);
+        if (!idx) continue;
+        const out = [];
+        for (const tri of idx) {
+          const A = remap[tri[0]], B = remap[tri[1]], C = remap[tri[2]];
+          if (A === B || B === C || A === C) { res.degenerate++; continue; }
+          out.push([A, B, C]);
+        }
+        if (!out.length) continue;
+        parts[3] = fmtIntRows(out);
+        st.override.set(p, parts.join(','));
+      } else {
+        /* IfcPolygonalFaceSet: indexen sitter i IfcIndexedPolygonalFace */
+        const faces = refListAt(m, attrs[4], attrs[5]);
+        for (const f of faces) {
+          if (!st.alive[f]) continue;
+          const fidx = readIndexList(m, f, 0);
+          if (!fidx || !fidx.length) continue;
+          const flat = fidx[0];
+          const out = [];
+          for (const v of flat) {
+            const nv = remap[v];
+            if (out.length === 0 || out[out.length - 1] !== nv) out.push(nv);
+          }
+          while (out.length > 1 && out[0] === out[out.length - 1]) out.pop();
+          if (out.length < 3) { st.kill(f, 'urartad yta'); res.degenerate++; continue; }
+          const fparts = [];
+          const fa = [];
+          splitAttrs(m.buf, m.pStart(f), m.pEnd(f), fa);
+          for (let k = 0; k < fa.length; k += 2) fparts.push(ascii(m.buf, fa[k], fa[k + 1]));
+          fparts[0] = '(' + out.join(',') + ')';
+          st.override.set(f, fparts.join(','));
+        }
+      }
+    }
+    if (prog) prog(li / lists.length);
+  }
+  if (log && res.lists) {
+    log('Svetsade hörn: ' + fmtNum(res.before) + ' -> ' + fmtNum(res.after) +
+        ' punkter i ' + fmtNum(res.lists) + ' listor.');
+  }
+  return res;
+}
+
+/* --------------------------------------------------------------------------
+   Omslutande låda i stället för mesh/BREP
+   -------------------------------------------------------------------------- */
+function boxifyGeometry(m, st, o, log, prog) {
+  const res = { replaced: 0, skipped: 0 };
+  const dec = o.coordDec;
+  const minDim = Math.pow(10, -dec) * 10;
+  const pc = buildPointCache(m, st, o, null);
+
+  const targets = [];
+  for (let i = 0; i < m.n; i++) {
+    if (!st.alive[i]) continue;
+    const t = m.typeOf(i);
+    if (t === 'IFCTRIANGULATEDFACESET' || t === 'IFCPOLYGONALFACESET' || t === 'IFCFACETEDBREP') targets.push(i);
+  }
+  if (!targets.length) return res;
+
+  const attrs = [];
+  for (let k = 0; k < targets.length; k++) {
+    const g = targets[k];
+    const t = m.typeOf(g);
+    let box = null;
+    if (t === 'IFCFACETEDBREP') box = bboxOfBrep(m, st, pc, g);
+    else box = bboxOfFaceSet(m, g);
+    if (!box) { res.skipped++; continue; }
+
+    const dx = Math.max(box[3] - box[0], minDim);
+    const dy = Math.max(box[4] - box[1], minDim);
+    const dz = Math.max(box[5] - box[2], minDim);
+    const cx = (box[0] + box[3]) / 2, cy = (box[1] + box[4]) / 2;
+
+    /* override-texten ar attributlistan UTAN yttre parenteser */
+    const p2 = addInstance(m, st, 'IFCCARTESIANPOINT', '(' + fmtReal(cx, dec) + ',' + fmtReal(cy, dec) + ')');
+    const ax2 = addInstance(m, st, 'IFCAXIS2PLACEMENT2D', '#' + m.ids[p2] + ',$');
+    const prof = addInstance(m, st, 'IFCRECTANGLEPROFILEDEF',
+      '.AREA.,$,#' + m.ids[ax2] + ',' + fmtReal(dx, dec) + ',' + fmtReal(dy, dec));
+    const p3 = addInstance(m, st, 'IFCCARTESIANPOINT',
+      '(' + fmtReal(0, dec) + ',' + fmtReal(0, dec) + ',' + fmtReal(box[2], dec) + ')');
+    const ax3 = addInstance(m, st, 'IFCAXIS2PLACEMENT3D', '#' + m.ids[p3] + ',$,$');
+    const dir = addInstance(m, st, 'IFCDIRECTION', '(0.,0.,1.)');
+    const sol = addInstance(m, st, 'IFCEXTRUDEDAREASOLID',
+      '#' + m.ids[prof] + ',#' + m.ids[ax3] + ',#' + m.ids[dir] + ',' + fmtReal(dz, dec));
+
+    /* byt ut referensen i alla föräldrar och rätta representationstypen */
+    const a = m.parOff[g], b = m.parOff[g + 1];
+    let used = false;
+    for (let x = a; x < b; x++) {
+      const p = m.parIdx[x];
+      if (!st.alive[p]) continue;
+      const pt = m.typeOf(p);
+      const parts = [];
+      splitAttrs(m.buf, m.pStart(p), m.pEnd(p), attrs);
+      for (let q = 0; q < attrs.length; q += 2) parts.push(ascii(m.buf, attrs[q], attrs[q + 1]));
+      const oldRef = '#' + m.ids[g], newRef = '#' + m.ids[sol];
+      let hit = false;
+      for (let q = 0; q < parts.length; q++) {
+        if (parts[q].indexOf(oldRef) < 0) continue;
+        const re = new RegExp('#' + m.ids[g] + '(?![0-9])', 'g');
+        const next = parts[q].replace(re, newRef);
+        if (next !== parts[q]) { parts[q] = next; hit = true; }
+      }
+      if (!hit) continue;
+      if (pt === 'IFCSHAPEREPRESENTATION' && parts.length >= 3) parts[2] = "'SweptSolid'";
+      st.override.set(p, parts.join(','));
+      used = true;
+    }
+    if (!used) { res.skipped++; continue; }
+    st.kill(g, 'ersatt av låda');
+    res.replaced++;
+    if (prog) prog(k / targets.length);
+  }
+  if (log && res.replaced) log('Ersatte ' + fmtNum(res.replaced) + ' geometrier med omslutande låda.');
+  return res;
+}
+
+function bboxOfFaceSet(m, g) {
+  const attrs = [];
+  splitAttrs(m.buf, m.pStart(g), m.pEnd(g), attrs);
+  const coords = refAt(m, attrs[0], attrs[1]);
+  if (coords < 0) return null;
+  const rows = readCoordList(m, coords);
+  if (!rows || !rows.length) return null;
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (const r of rows) {
+    const x = r[0] || 0, y = r[1] || 0, z = r[2] || 0;
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+    if (z < z0) z0 = z; if (z > z1) z1 = z;
+  }
+  return [x0, y0, z0, x1, y1, z1];
+}
+
+function bboxOfBrep(m, st, pc, g) {
+  const seen = new Set();
+  const stack = [g];
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  let found = 0, guard = 0;
+  while (stack.length && guard++ < 4000000) {
+    const i = stack.pop();
+    if (seen.has(i)) continue;
+    seen.add(i);
+    const sl = pc.slot[i];
+    if (sl >= 0) {
+      const x = pc.X[sl], y = pc.Y[sl], z = pc.Z[sl];
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (z < z0) z0 = z; if (z > z1) z1 = z;
+      found++;
+      continue;
+    }
+    const a = m.refOff[i], b = m.refOff[i + 1];
+    for (let k = a; k < b; k++) stack.push(m.refIdx[k]);
+  }
+  if (found < 4) return null;
+  return [x0, y0, z0, x1, y1, z1];
+}
+
+/* ===== 70-write.js ===== */
+/* ==========================================================================
+   70-write.js  ·  numrera om och skriv ut filen
+   --------------------------------------------------------------------------
+   Referenser skrivs alltid via canon + newId, så en trasig referens är
+   omöjlig att skriva utan att räknaren dangling ökar. Den räknaren är
+   integritetskontrollen.
+   ========================================================================== */
+
+const STAMP = ' + BIM Engine IFC Optimizer 1.0';
+
+function patchHeader(m, o) {
+  /* returnerar antingen null (skriv originalbytes) eller en sträng */
+  if (!o.stamp) return null;
+  const buf = m.buf;
+  const kw = findSeq(buf, asciiBytes('FILE_NAME'), 0, m.headEnd);
+  if (kw < 0) return null;
+  let p = kw + 9;
+  while (p < m.headEnd && buf[p] !== CH_LP) p++;
+  if (p >= m.headEnd) return null;
+  const close = skipGroup(buf, p, m.headEnd);
+  if (close < 0) return null;
+  const attrs = [];
+  splitAttrs(buf, p + 1, close - 1, attrs);
+  if (attrs.length < 10) return null;
+  const parts = [];
+  for (let k = 0; k < attrs.length; k += 2) parts.push(ascii(buf, attrs[k], attrs[k + 1]));
+  const cur = parts[4].trim();
+  if (cur.indexOf('BIM Engine IFC Optimizer') >= 0) return null;
+  if (cur.length >= 2 && cur.charCodeAt(0) === CH_QUOTE) {
+    parts[4] = cur.slice(0, cur.length - 1) + STAMP.replace(/'/g, "''") + "'";
+  } else {
+    parts[4] = "'BIM Engine IFC Optimizer 1.0'";
+  }
+  return ascii(buf, 0, p + 1) + parts.join(',') + ascii(buf, close - 1, m.headEnd);
+}
+
+function writeModel(m, st, canon, o, log, prog) {
+  const n = m.n;
+  const newId = new Uint32Array(n);
+  let count = 0;
+  if (o.renumber) {
+    for (let i = 0; i < n; i++) if (st.alive[i]) newId[i] = ++count;
+  } else {
+    for (let i = 0; i < n; i++) if (st.alive[i]) { newId[i] = m.ids[i]; count++; }
+  }
+
+  let dangling = 0;
+  const ctx = {
+    m: m, st: st,
+    roundKind: buildRoundKinds(m, o.roundCoords),
+    coordDec: o.coordDec, ratioDec: o.ratioDec,
+    mapId: function (idx) {
+      const r = canonFind(canon, idx);
+      const v = newId[r];
+      if (v === 0) { dangling++; return newId[idx] || 1; }
+      return v;
+    }
+  };
+
+  /* typnamn som bytes, en gång per typ */
+  const tb = new Array(m.typeNames.length);
+  for (let t = 0; t < m.typeNames.length; t++) tb[t] = asciiBytes(m.typeNames[t]);
+
+  const sink = new ByteSink(8 << 20);
+  const head = patchHeader(m, o);
+  if (head === null) sink.raw(m.buf, 0, m.headEnd);
+  else sink.str(head);
+  sink.byte(CH_CR); sink.byte(CH_LF);
+
+  const step = Math.max(1, Math.floor(n / 50));
+  for (let i = 0; i < n; i++) {
+    if (!st.alive[i]) continue;
+    sink.byte(CH_HASH);
+    sink.uint(newId[i]);
+    sink.byte(CH_EQ);
+    const t = m.tId[i];
+    sink.raw(tb[t], 0, tb[t].length);
+    sink.byte(CH_LP);
+    emitParams(ctx, i, sink);
+    sink.byte(CH_RP);
+    sink.byte(CH_SEMI);
+    sink.byte(CH_CR); sink.byte(CH_LF);
+    if (prog && (i % step) === 0) prog(i / n);
+  }
+  sink.str('ENDSEC;\r\nEND-ISO-10303-21;\r\n');
+  const blocks = sink.finish();
+  return { blocks: blocks, count: count, dangling: dangling, bytes: blocks.reduce(function (s, b) { return s + b.length; }, 0) };
+}
+
+/* --------------------------------------------------------------------------
+   Oberoende kontroll: läs om det vi just skrev och verifiera att varje
+   referens pekar på en instans som finns.
+   -------------------------------------------------------------------------- */
+function verifyOutput(blocks, expectCount, allowedDangling) {
+  let total = 0;
+  for (const b of blocks) total += b.length;
+  const buf = new Uint8Array(total);
+  let p = 0;
+  for (const b of blocks) { buf.set(b, p); p += b.length; }
+  const m2 = parseIndex(buf, null);
+  const problems = [];
+  if (m2.n !== expectCount) problems.push('antal instanser ' + m2.n + ' != ' + expectCount);
+  let dangling = 0;
+  for (let i = 0; i < m2.n; i++) {
+    let q = m2.pOff[i];
+    const end = m2.eOff[i];
+    while (q < end) {
+      const c = buf[q];
+      if (c === CH_QUOTE) { q = skipQuotedFrom(buf, q, end); continue; }
+      if (c === CH_HASH) {
+        let r = q + 1, id = 0, nd = 0;
+        while (r < end && isDigit(buf[r])) { id = id * 10 + (buf[r] - CH_0); r++; nd++; }
+        if (nd > 0) { if (m2.idxOf(id) < 0) dangling++; q = r; continue; }
+      }
+      q++;
+    }
+  }
+  const inherited = Math.min(dangling, allowedDangling || 0);
+  const created = dangling - inherited;
+  if (created > 0) problems.push(created + ' referenser pekar på objekt som inte finns');
+  return {
+    ok: problems.length === 0, problems: problems, instances: m2.n, schema: m2.schema,
+    dangling: dangling, inherited: inherited
+  };
+}
+
+/* ===== 75-analyse.js ===== */
+/* ==========================================================================
+   75-analyse.js  ·  storleksrapport: var ligger byten?
+   ========================================================================== */
+
+function headerField(m, kw, attrIndex) {
+  const buf = m.buf;
+  const at = findSeq(buf, asciiBytes(kw), 0, m.headEnd);
+  if (at < 0) return null;
+  let p = at + kw.length;
+  while (p < m.headEnd && buf[p] !== CH_LP) p++;
+  const close = skipGroup(buf, p, m.headEnd);
+  if (close < 0) return null;
+  const attrs = [];
+  splitAttrs(buf, p + 1, close - 1, attrs);
+  if (attrs.length < (attrIndex + 1) * 2) return null;
+  const s = attrs[attrIndex * 2], e = attrs[attrIndex * 2 + 1];
+  const q = quotedAt(buf, s, e);
+  if (q !== null) return q;
+  return attrText(m, s, e);
+}
+
+function detectLengthUnit(m) {
+  const attrs = [];
+  for (let i = 0; i < m.n; i++) {
+    const t = m.typeOf(i);
+    if (t !== 'IFCSIUNIT') continue;
+    splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+    if (attrs.length < 8) continue;
+    const utype = attrText(m, attrs[2], attrs[3]);
+    if (utype !== '.LENGTHUNIT.') continue;
+    const prefix = attrText(m, attrs[4], attrs[5]);
+    const name = attrText(m, attrs[6], attrs[7]);
+    let factor = 1, label = 'm';
+    if (prefix === '.MILLI.') { factor = 0.001; label = 'mm'; }
+    else if (prefix === '.CENTI.') { factor = 0.01; label = 'cm'; }
+    else if (prefix === '.DECI.') { factor = 0.1; label = 'dm'; }
+    else if (prefix === '.KILO.') { factor = 1000; label = 'km'; }
+    if (name === '.METRE.' || name === '.METER.') return { label: label, factor: factor };
+    return { label: label, factor: factor };
+  }
+  for (let i = 0; i < m.n; i++) {
+    if (m.typeOf(i) !== 'IFCCONVERSIONBASEDUNIT') continue;
+    splitAttrs(m.buf, m.pStart(i), m.pEnd(i), attrs);
+    if (attrs.length < 6) continue;
+    const nm = quotedAt(m.buf, attrs[4], attrs[5]);
+    if (nm) {
+      const low = nm.toLowerCase();
+      if (low.indexOf('foot') >= 0 || low.indexOf('feet') >= 0) return { label: 'ft', factor: 0.3048 };
+      if (low.indexOf('inch') >= 0) return { label: 'in', factor: 0.0254 };
+    }
+  }
+  return { label: 'm', factor: 1 };
+}
+
+/* hur många byte kan avrundningen spara? (sampling för stora modeller) */
+function estimateRounding(m, coordDec, ratioDec) {
+  const nt = m.typeNames.length;
+  const kind = new Int8Array(nt).fill(-1);
+  for (let t = 1; t < nt; t++) {
+    if (ROUND_COORD.has(m.typeNames[t])) kind[t] = 0;
+    else if (ROUND_RATIO.has(m.typeNames[t])) kind[t] = 1;
+  }
+  const cand = [];
+  for (let i = 0; i < m.n; i++) if (kind[m.tId[i]] >= 0) cand.push(i);
+  if (!cand.length) return { saving: 0, values: 0, longValues: 0, sampled: 0, maxDecimals: 0 };
+
+  const MAX = 120000;
+  const stride = cand.length > MAX ? Math.ceil(cand.length / MAX) : 1;
+  let sampled = 0, saving = 0, values = 0, longValues = 0, maxDec = 0;
+  const buf = m.buf;
+  for (let k = 0; k < cand.length; k += stride) {
+    const i = cand[k];
+    sampled++;
+    const dec = kind[m.tId[i]] === 0 ? coordDec : ratioDec;
+    let p = m.pStart(i);
+    const end = m.pEnd(i);
+    while (p < end) {
+      const c = buf[p];
+      if (c === CH_QUOTE) { p = skipQuotedFrom(buf, p, end); continue; }
+      if (isNumStart(c)) {
+        let q = p;
+        while (q < end && isNumChar(buf[q])) q++;
+        if (isRealToken(buf, p, q)) {
+          values++;
+          const d = decimalsOf(buf, p, q);
+          if (d > maxDec) maxDec = d;
+          if (d < 0 || d > dec) {
+            longValues++;
+            const v = parseFloat(ascii(buf, p, q));
+            const nl = fmtReal(v, dec).length;
+            if (q - p > nl) saving += (q - p) - nl;
+          }
+        }
+        p = q; continue;
+      }
+      p++;
+    }
+  }
+  return {
+    saving: Math.round(saving * stride), values: values * stride,
+    longValues: longValues * stride, sampled: sampled, maxDecimals: maxDec
+  };
+}
+
+function analyseModel(m, roots, o) {
+  const nt = m.typeNames.length;
+  const catBytes = new Float64Array(CAT_LABEL.length);
+  const catCount = new Uint32Array(CAT_LABEL.length);
+  const typeCat = new Uint8Array(nt);
+  for (let t = 1; t < nt; t++) typeCat[t] = categoryOf(m.typeNames[t]);
+  for (let t = 1; t < nt; t++) {
+    catBytes[typeCat[t]] += m.typeBytes[t];
+    catCount[typeCat[t]] += m.typeCount[t];
+  }
+
+  const types = [];
+  for (let t = 1; t < nt; t++) {
+    if (!m.typeCount[t]) continue;
+    types.push({ name: m.typeNames[t], count: m.typeCount[t], bytes: m.typeBytes[t], cat: typeCat[t] });
+  }
+  types.sort(function (a, b) { return b.bytes - a.bytes; });
+
+  const elements = types.filter(function (x) { return isElementClass(x.name); })
+                        .sort(function (a, b) { return b.bytes - a.bytes; });
+
+  const cats = [];
+  for (let c = 0; c < CAT_LABEL.length; c++) {
+    if (!catCount[c]) continue;
+    cats.push({ cat: c, label: CAT_LABEL[c], bytes: catBytes[c], count: catCount[c] });
+  }
+  cats.sort(function (a, b) { return b.bytes - a.bytes; });
+
+  let rootCount = 0;
+  for (let i = 0; i < m.n; i++) if (roots[i]) rootCount++;
+
+  const unit = detectLengthUnit(m);
+  const round = estimateRounding(m, o.coordDec, o.ratioDec);
+
+  const byName = {};
+  for (const t of types) byName[t.name] = t;
+  const bytesOf = function (names) {
+    let s = 0;
+    for (const nm of names) if (byName[nm]) s += byName[nm].bytes;
+    return s;
+  };
+  const catOf = function (c) { return catBytes[c]; };
+
+  return {
+    bytes: m.buf.length,
+    instances: m.n,
+    types: types.length,
+    roots: rootCount,
+    schema: m.schema,
+    unit: unit,
+    tool: headerField(m, 'FILE_NAME', 5) || '',
+    author: '',
+    view: headerField(m, 'FILE_DESCRIPTION', 0) || '',
+    dataBytes: m.dataEnd - m.headEnd,
+    cats: cats,
+    topTypes: types.slice(0, 30),
+    elements: elements.slice(0, 40),
+    round: round,
+    est: {
+      psets: catOf(CAT.PROP),
+      quantities: catOf(CAT.QTY),
+      typeObjects: catOf(CAT.TYPE) + bytesOf(['IFCRELDEFINESBYTYPE']),
+      materials: catOf(CAT.MAT) + bytesOf(['IFCRELASSOCIATESMATERIAL']),
+      styles: catOf(CAT.STYLE),
+      drawing: catOf(CAT.DRAW),
+      spaces: catOf(CAT.SPACE),
+      openings: catOf(CAT.OPEN),
+      rounding: round.saving,
+      brep: catOf(CAT.BREP),
+      tess: catOf(CAT.TESS),
+      points: catOf(CAT.PT)
+    }
+  };
+}
+
+/* ===== 80-api.js ===== */
+/* ==========================================================================
+   80-api.js  ·  körschema och förinställningar
+   ========================================================================== */
+
+/* Inställningarna definieras i 05-options.js (delas med gränssnittet). */
+/* ------------------------------------------------------------------------- */
+async function analyseFile(bytes, opts, hooks) {
+  const h = hooks || {};
+  const log = h.log || function () {};
+  const prog = h.prog || function () {};
+  let u8 = bytes;
+  let zipped = false;
+  if (looksZipped(u8)) {
+    const r = await unzipFirstIfc(u8);
+    u8 = r.bytes; zipped = true;
+    log('Packade upp ' + r.name + ' (' + fmtBytes(u8.length) + ').');
+  }
+  prog('Läser', 0.02);
+  const m = parseIndex(u8, function (f) { prog('Läser instanser', 0.05 + f * 0.5); });
+  prog('Analyserar', 0.6);
+  const roots = detectRoots(m, function (f) { prog('Analyserar', 0.6 + f * 0.15); });
+  const o = opts || baseOptions();
+  const unit = detectLengthUnit(m);
+  o.coordDec = decimalsFor(unit.factor, (o.tolMm || 0.01) / 1000);
+  const rep = analyseModel(m, roots, o);
+  rep.zipped = zipped;
+  rep.rawBytes = u8.length;
+  rep.coordDec = o.coordDec;
+  prog('Klar', 1);
+  return { report: rep, model: m, roots: roots, bytes: u8 };
+}
+
+function looksZipped(u8) {
+  return u8.length > 4 && u8[0] === 0x50 && u8[1] === 0x4B && (u8[2] === 3 || u8[2] === 5 || u8[2] === 7);
+}
+
+/* rekonstruera referensgrafen efter att geometrin ändrats */
+function rebuildGraph(m, st) {
+  const n = m.n;
+  const off = new Uint32Array(n + 1);
+  const vec = new I32Vec(Math.max(1024, n * 2));
+  const kids = [];
+  for (let i = 0; i < n; i++) {
+    off[i] = vec.n;
+    st.children(i, kids);
+    for (let k = 0; k < kids.length; k++) vec.push(kids[k]);
+  }
+  off[n] = vec.n;
+  const R = vec.trim();
+  const pc = new Uint32Array(n + 1);
+  for (let k = 0; k < R.length; k++) pc[R[k] + 1]++;
+  for (let i = 0; i < n; i++) pc[i + 1] += pc[i];
+  const pIdx = new Int32Array(R.length);
+  const cursor = pc.slice(0, n);
+  for (let i = 0; i < n; i++) for (let k = off[i]; k < off[i + 1]; k++) pIdx[cursor[R[k]]++] = i;
+  m.refOff = off; m.refIdx = R; m.parOff = pc; m.parIdx = pIdx;
+}
+
+async function optimizeFile(bytes, opts, hooks, pre) {
+  const h = hooks || {};
+  const log = h.log || function () {};
+  const prog = h.prog || function () {};
+  const t0 = nowMs();
+  const timing = {};
+  const mark = function (name, from) { timing[name] = Math.round(nowMs() - from); };
+
+  let m, roots, u8, analysis;
+  if (pre) { m = pre.model; roots = pre.roots; u8 = pre.bytes; analysis = pre.report; }
+  else {
+    const a = await analyseFile(bytes, opts, { log: log, prog: function (s, f) { prog(s, f * 0.25); } });
+    m = a.model; roots = a.roots; u8 = a.bytes; analysis = a.report;
+  }
+  const o = opts;
+  const sizeBefore = u8.length;
+
+  let tp = nowMs();
+  prog('Bygger referensgraf', 0.28);
+  buildRefs(m, function (f) { prog('Bygger referensgraf', 0.28 + f * 0.12); });
+  mark('graf', tp);
+
+  const st = new StripState(m, roots);
+
+  tp = nowMs();
+  prog('Rensar', 0.42);
+  markDeaths(m, st, o, log);
+  repairRefs(m, st, log, function (f) { prog('Lagar referenser', 0.44 + f * 0.06); });
+  mark('rensning', tp);
+
+  let geom = null, weldRes = null, boxRes = null;
+  if (o.boxify || o.weld || o.mergeCoplanar) {
+    tp = nowMs();
+    if (o.boxify) { prog('Ersätter geometri med lådor', 0.52); boxRes = boxifyGeometry(m, st, o, log, null); }
+    if (o.weld) {
+      prog('Svetsar hörn', 0.55);
+      o.weldDec = decimalsFor(analysis.unit.factor, (o.weldTolMm || 0.5) / 1000);
+      weldRes = weldPointLists(m, st, o, log, null);
+    }
+    if (o.mergeCoplanar) {
+      prog('Slår ihop koplanära ytor', 0.58);
+      geom = mergeCoplanarFaces(m, st, o, log, function (f) { prog('Slår ihop koplanära ytor', 0.58 + f * 0.1); });
+    }
+    rebuildGraph(m, st);
+    repairRefs(m, st, log, null);
+    mark('geometri', tp);
+  }
+
+  tp = nowMs();
+  if (o.gc) { prog('Skräpsamlar', 0.7); collectGarbage(m, st, log, function (f) { prog('Skräpsamlar', 0.7 + f * 0.05); }); }
+  mark('skräp', tp);
+
+  tp = nowMs();
+  prog('Söker dubbletter', 0.76);
+  const dd = dedupRecursive(m, st, o, log, function (f) { prog('Söker dubbletter', 0.76 + f * 0.1); });
+  mark('dubbletter', tp);
+
+  tp = nowMs();
+  prog('Skriver fil', 0.88);
+  const w = writeModel(m, st, dd.canon, o, log, function (f) { prog('Skriver fil', 0.88 + f * 0.07); });
+  mark('skrivning', tp);
+
+  let verify = null;
+  if (o.verify && w.bytes < 300 * 1048576) {
+    tp = nowMs();
+    prog('Kontrollerar resultatet', 0.96);
+    try {
+      verify = verifyOutput(w.blocks, w.count, m.inputDangling || 0);
+    } catch (e) {
+      verify = { ok: false, problems: ['kontrollen kunde inte läsa filen: ' + (e && e.message)], instances: 0 };
+    }
+    mark('kontroll', tp);
+    if (verify.ok) {
+      log('Integritetskontroll: OK (' + fmtNum(verify.instances) + ' instanser, inga nya brutna referenser).');
+      if (verify.inherited) {
+        log('Obs: ' + fmtNum(verify.inherited) + ' brutna referenser fanns redan i originalfilen och följer med.');
+      }
+    } else log('VARNING: ' + verify.problems.join('; '));
+  }
+  if (m.inputDangling) {
+    log('Originalfilen innehåller ' + fmtNum(m.inputDangling) + ' referenser till objekt som inte finns.');
+  }
+  if (w.dangling > 0) log('VARNING: ' + w.dangling + ' referenser kunde inte skrivas korrekt.');
+
+  let blocks = w.blocks;
+  let ext = '.ifc';
+  if (o.zip) {
+    prog('Komprimerar', 0.98);
+    tp = nowMs();
+    const inner = String((o.name || 'model.ifc')).replace(/\.(ifczip|ifc)$/i, '') + '.ifc';
+    blocks = await zipSingle(inner, w.blocks);
+    ext = '.ifczip';
+    mark('zip', tp);
+  }
+  let outBytes = 0;
+  for (const b of blocks) outBytes += b.length;
+
+  /* topplista över vad som togs bort */
+  const removed = [];
+  for (const kv of st.killedType) removed.push({ name: kv[0], count: kv[1] });
+  removed.sort(function (a, b) { return b.count - a.count; });
+
+  prog('Klar', 1);
+  return {
+    blocks: blocks, ext: ext,
+    report: {
+      analysis: analysis,
+      sizeBefore: sizeBefore,
+      sizeAfter: outBytes,
+      rawAfter: w.bytes,
+      instancesBefore: analysis.instances,
+      instancesAfter: w.count,
+      merged: dd.merged,
+      dedupRounds: dd.rounds,
+      resurrected: st.resurrected,
+      removed: removed.slice(0, 25),
+      removedTotal: analysis.instances - w.count,
+      geom: geom, weld: weldRes, box: boxRes,
+      verify: verify,
+      dangling: w.dangling,
+      inputDangling: m.inputDangling || 0,
+      zip: !!o.zip,
+      timing: timing,
+      totalMs: Math.round(nowMs() - t0)
+    }
+  };
+}
+
+function nowMs() {
+  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+}
+
+/* ===== 90-worker.js ===== */
+/* ==========================================================================
+   90-worker.js  ·  meddelandehantering i webbarbetaren
+   ========================================================================== */
+
+/* Körs bara i en riktig webbarbetare. I huvudtråden (reservläget) laddas
+   samma kod in med new Function() och då finns document. */
+if (typeof document === 'undefined') {
+self.onmessage = async function (ev) {
+  const msg = ev.data || {};
+  const id = msg.id;
+  const post = function (type, extra) {
+    const o = { type: type, id: id };
+    if (extra) for (const k in extra) o[k] = extra[k];
+    self.postMessage(o);
+  };
+  const hooks = {
+    log: function (text) { post('log', { text: text }); },
+    prog: function (phase, frac) { post('progress', { phase: phase, frac: frac }); }
+  };
+  try {
+    if (msg.cmd === 'analyse') {
+      const u8 = new Uint8Array(msg.bytes);
+      const r = await analyseFile(u8, msg.opts, hooks);
+      post('analysed', { report: r.report });
+    } else if (msg.cmd === 'optimize') {
+      const u8 = new Uint8Array(msg.bytes);
+      const r = await optimizeFile(u8, msg.opts, hooks, null);
+      const blob = new Blob(r.blocks, { type: 'application/octet-stream' });
+      post('done', { report: r.report, blob: blob, ext: r.ext });
+    } else if (msg.cmd === 'ping') {
+      post('pong', { version: '1.0' });
+    }
+  } catch (e) {
+    post('error', { message: (e && e.message) ? e.message : String(e), stack: e && e.stack ? String(e.stack) : '' });
+  }
+};
+}
+
+</script>
+<script>
+/* ==========================================================================
+   05-options.js  ·  inställningar och förinställningar
+   Laddas både i gränssnittet och i webbarbetaren.
+   ========================================================================== */
+
+function decimalsFor(unitFactor, tolMetres) {
+  const tolU = tolMetres / (unitFactor || 1);
+  const d = Math.ceil(-Math.log10(tolU));
+  return Math.max(0, Math.min(9, isFinite(d) ? d : 3));
+}
+
+function baseOptions() {
+  return {
+    roundCoords: true, coordDec: 2, ratioDec: 9, tolMm: 0.01,
+    dedup: true, unifyOwnerHistory: true, gc: true, renumber: true, stamp: true,
+    dropPsets: false, dropQuantities: false, dropTypes: false, dropMaterials: false,
+    dropStyles: false, dropLayers: false, dropClassifications: false,
+    dropConnectivity: false, drop2D: false, dropGrids: false, dropSpaces: false,
+    dropSpaceBoundaries: false, dropOpenings: false, dropClasses: [],
+    mergeCoplanar: false, weld: false, weldTolMm: 0.5, boxify: false,
+    zip: false, verify: true, suffix: '_optimerad'
+  };
+}
+
+const PRESET_KEYS = ['latt', 'medel', 'aggressiv'];
+
+function presetOptions(preset) {
+  const o = baseOptions();
+  if (preset === 'medel' || preset === 'aggressiv') {
+    o.dropPsets = true; o.dropQuantities = true; o.dropTypes = true;
+    o.dropMaterials = true; o.dropClassifications = true; o.dropConnectivity = true;
+    o.drop2D = true; o.dropLayers = true; o.dropSpaceBoundaries = true;
+    o.mergeCoplanar = true;
+  }
+  if (preset === 'aggressiv') {
+    o.dropStyles = true; o.dropSpaces = true; o.dropOpenings = true;
+    o.dropGrids = true; o.weld = true; o.zip = true;
+  }
+  return o;
+}
+
+</script>
+<script>
+/* ==========================================================================
+   app.js  ·  gränssnittet
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  const $ = function (id) { return document.getElementById(id); };
+  const el = function (tag, cls, txt) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  };
+  const fmtB = function (n) {
+    if (n === null || n === undefined) return '–';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1).replace('.', ',') + ' kB';
+    if (n < 1073741824) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+    return (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
+  };
+  const fmtN = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); };
+
+  /* --- motorn: webbarbetare om det går, annars huvudtråden -----------------
+     Öppnad direkt från disk (file://) vägrar en del webbläsare skapa en
+     arbetare ur en Blob-URL. Vi gör därför ett ping-test och faller tillbaka
+     på att köra motorn i huvudtråden i stället för att stå handfallna.     */
+  let worker = null, reqId = 0, direct = null;
+  const pending = new Map();
+
+  function startWorker() {
+    const src = $('engineSrc').textContent;
+    let ok = false;
+    if (/[?&]forgrund/.test(location.search)) { useDirect(src); return; }
+    try {
+      const url = URL.createObjectURL(new Blob([src], { type: 'application/javascript' }));
+      worker = new Worker(url);
+      worker.onmessage = function (ev) {
+        const d = ev.data || {};
+        if (d.type === 'pong') { ok = true; $('engineState').textContent = 'motor · redo (lokalt)'; return; }
+        const job = pending.get(d.id);
+        if (!job) return;
+        if (d.type === 'log') { job.onLog && job.onLog(d.text); return; }
+        if (d.type === 'progress') { job.onProg && job.onProg(d.phase, d.frac); return; }
+        pending.delete(d.id);
+        if (d.type === 'error') job.reject(new Error(d.message + (d.stack ? '\n' + d.stack : '')));
+        else job.resolve(d);
+      };
+      worker.onerror = function () { if (!ok) useDirect(src); };
+      worker.postMessage({ cmd: 'ping', id: 0 });
+      setTimeout(function () { if (!ok) useDirect(src); }, 4000);
+      $('engineState').textContent = 'motor · startar';
+    } catch (e) {
+      useDirect(src);
+    }
+  }
+
+  function useDirect(src) {
+    if (direct) return;
+    try {
+      worker = null;
+      direct = new Function(src + '\nreturn { analyseFile: analyseFile, optimizeFile: optimizeFile };')();
+      $('engineState').textContent = 'motor · redo (förgrund)';
+      logLine('Webbläsaren tillåter ingen bakgrundstråd här — motorn körs i förgrunden. ' +
+              'Gränssnittet står stilla medan en stor fil arbetas igenom.', 'warn');
+    } catch (e) {
+      $('engineState').textContent = 'motor · fel';
+      $('engineState').className = 'tag bad';
+      logLine('Motorn kunde inte startas: ' + (e && e.message), 'err');
+    }
+  }
+
+  function ask(cmd, payload, onLog, onProg) {
+    if (direct) {
+      const hooks = { log: onLog || function () {}, prog: onProg || function () {} };
+      const u8 = new Uint8Array(payload.bytes);
+      /* låt webbläsaren måla klart innan huvudtråden låses */
+      return new Promise(function (res) { setTimeout(res, 40); }).then(function () {
+        if (cmd === 'analyse') {
+          return direct.analyseFile(u8, payload.opts, hooks).then(function (r) { return { report: r.report }; });
+        }
+        return direct.optimizeFile(u8, payload.opts, hooks, null).then(function (r) {
+          return { report: r.report, blob: new Blob(r.blocks, { type: 'application/octet-stream' }), ext: r.ext };
+        });
+      });
+    }
+    const id = ++reqId;
+    const msg = Object.assign({ cmd: cmd, id: id }, payload);
+    return new Promise(function (resolve, reject) {
+      pending.set(id, { resolve: resolve, reject: reject, onLog: onLog, onProg: onProg });
+      worker.postMessage(msg, payload.bytes ? [payload.bytes] : []);
+    });
+  }
+
+  /* --- tillstånd ---------------------------------------------------------- */
+  const files = [];            // { file, id, state, report, result, node }
+  let preset = 'medel';
+  let opts = null;
+  let custom = false;
+  let busy = false;
+  let queue = Promise.resolve();
+
+  const LEVELS = {
+    latt: 'Rör inte informationen. Avrundar bara flyttal, slår ihop identiska ' +
+          'objekt, städar bort föräldralöst skräp och numrerar om. Modellen är ' +
+          'exakt densamma efteråt.',
+    medel: 'För samordning och granskning. Tar bort egenskaper, mängder, typobjekt, ' +
+           'material, 2D-linjer och lager. Geometrin är kvar helt oförändrad — ' +
+           'koplanära ytor slås ihop förlustfritt. Färger behålls.',
+    aggressiv: 'Minsta möjliga fil. Tar dessutom bort färger, rum, öppningar och ' +
+               'rutnät, svetsar ihop hörn och sparar som .ifczip.'
+  };
+
+  /* option-specifikationen driver både kryssrutorna och besparingssiffrorna */
+  const SPEC = [
+    { grp: 'Säkert — ingen information försvinner' },
+    { k: 'roundCoords', t: 'Avrunda flyttal', d: 'Revit skriver ofta 15 decimaler i millimetermodeller. Detta är den enskilt största lättvinsten.', est: 'rounding' },
+    { k: 'dedup', t: 'Slå ihop identiska objekt', d: 'Punkter, riktningar, profiler, placeringar och hela geometrigrenar som är exakt lika blir en enda instans.' },
+    { k: 'gc', t: 'Städa bort föräldralöst', d: 'Objekt som ingenting pekar på — vanligt skräp från exporten.' },
+    { k: 'renumber', t: 'Numrera om instanser', d: 'Ger korta instansnummer i den nya filen.' },
+    { k: 'unifyOwnerHistory', t: 'En gemensam ägarhistorik', d: 'Alla objekt pekar på samma IfcOwnerHistory.' },
+    { grp: 'Information som ofta inte behövs i en samordningsmodell' },
+    { k: 'dropPsets', t: 'Egenskaper (Pset)', d: 'All parameterinformation. Behåll om modellen ska mängdas eller kravgranskas.', est: 'psets' },
+    { k: 'dropQuantities', t: 'Mängder (BaseQuantities)', est: 'quantities' },
+    { k: 'dropTypes', t: 'Typobjekt', d: 'IfcWallType m.fl. samt kopplingen objekt–typ.', est: 'typeObjects' },
+    { k: 'dropMaterials', t: 'Material', d: 'Materiallager och materialkopplingar. Färg som kommer från material kan försvinna.', est: 'materials' },
+    { k: 'dropStyles', t: 'Färger och stilar', d: 'Modellen blir grå i visaren.', est: 'styles', risk: true },
+    { k: 'dropLayers', t: 'Presentationslager', d: 'IfcPresentationLayerAssignment (CAD-lagernamn).' },
+    { k: 'dropClassifications', t: 'Klassificering och dokument', d: 'CoClass/BSAB-referenser, dokumentlänkar.' },
+    { k: 'dropConnectivity', t: 'Anslutningsrelationer', d: 'IfcRelConnects* — vem som möter vem. Används sällan nedströms.' },
+    { k: 'drop2D', t: '2D och annotation', d: 'Axel-, footprint- och annotationsrepresentationer samt IfcAnnotation.', est: 'drawing' },
+    { k: 'dropGrids', t: 'Rutnät', d: 'IfcGrid med axlar.' },
+    { k: 'dropSpaces', t: 'Rum och zoner', d: 'Innehållet i rummen flyttas upp till våningsplanet så inget tappas.', est: 'spaces', risk: true },
+    { k: 'dropSpaceBoundaries', t: 'Rumsavgränsningar', d: 'IfcRelSpaceBoundary — kan vara mycket stort i arkitektmodeller.' },
+    { k: 'dropOpenings', t: 'Öppningar', d: 'IfcOpeningElement. Varning: visare som själva klipper hål i väggen slutar göra det.', est: 'openings', risk: true },
+    { grp: 'Geometri' },
+    { k: 'mergeCoplanar', t: 'Slå ihop koplanära ytor', d: 'Trianglar i samma plan blir en yta. Förlustfritt — varje skal areakontrolleras och lämnas orört om något inte stämmer.' },
+    { k: 'weld', t: 'Svetsa ihop hörn (IFC4-mesh)', d: 'Kvantiserar punktlistor och tar bort urartade trianglar.' },
+    { k: 'boxify', t: 'Ersätt geometri med lådor', d: 'Varje mesh/BREP byts mot sin omslutande låda. Modellen blir klossar — bara för volymstudier.', risk: true },
+    { grp: 'Utdata' },
+    { k: 'zip', t: 'Spara som .ifczip', d: 'Zippad IFC. Störst effekt av allt, men alla program läser inte ifczip.' },
+    { k: 'verify', t: 'Kontrollera resultatet', d: 'Läser om den skrivna filen och verifierar att varje referens pekar rätt.' }
+  ];
+
+  function setPreset(p) {
+    preset = p;
+    const tol = opts ? opts.tolMm : 0.01;
+    const rc = opts ? opts.roundCoords : true;
+    const dc = opts ? opts.dropClasses : [];
+    opts = presetOptions(p);
+    opts.tolMm = tol; opts.roundCoords = rc; opts.dropClasses = dc;
+    custom = false;
+    render();
+  }
+
+  function estFor(key) {
+    let sum = 0, any = false;
+    for (const f of files) {
+      if (!f.report || !f.report.est) continue;
+      const v = f.report.est[key];
+      if (typeof v === 'number') { sum += v; any = true; }
+    }
+    return any ? sum : null;
+  }
+
+  /* --- rendering ---------------------------------------------------------- */
+  function render() {
+    renderPresets();
+    renderOpts();
+    renderFiles();
+    renderAnalysis();
+    $('runBtn').disabled = busy || files.length === 0;
+    $('runBtn').textContent = busy ? 'Arbetar…' : (files.length > 1 ? 'Optimera ' + files.length + ' filer' : 'Optimera');
+  }
+
+  function renderPresets() {
+    const btns = $('presetSeg').querySelectorAll('button');
+    for (const b of btns) b.classList.toggle('on', !custom && b.dataset.p === preset);
+    $('levelNote').innerHTML = custom
+      ? '<b>Anpassad</b> — du har ändrat inställningarna själv.'
+      : '<b>' + $('presetSeg').querySelector('[data-p="' + preset + '"]').textContent + '</b> — ' + LEVELS[preset];
+    const tb = $('tolSeg').querySelectorAll('button');
+    for (const b of tb) {
+      const t = parseFloat(b.dataset.t);
+      b.classList.toggle('on', (t === 0 && !opts.roundCoords) || (opts.roundCoords && Math.abs(t - opts.tolMm) < 1e-9));
+    }
+    let dec = null;
+    for (const f of files) if (f.report) { dec = f.report.coordDec; break; }
+    $('tolNote').textContent = !opts.roundCoords
+      ? 'Flyttalen skrivs precis som de kom in.'
+      : 'Koordinater avrundas till ' + String(opts.tolMm).replace('.', ',') + ' mm' +
+        (dec !== null ? ' (' + dec + ' decimaler i modellens enhet)' : '') +
+        '. Det är 100–10 000 gånger finare än byggtoleransen.';
+  }
+
+  function renderOpts() {
+    const box = $('opts');
+    box.innerHTML = '';
+    for (const s of SPEC) {
+      if (s.grp) { box.appendChild(el('div', 'grp', s.grp)); continue; }
+      const row = el('div', 'opt' + (s.risk ? ' risk' : ''));
+      const cb = el('input');
+      cb.type = 'checkbox'; cb.checked = !!opts[s.k];
+      cb.addEventListener('change', function () {
+        opts[s.k] = cb.checked;
+        if (s.k === 'roundCoords') { renderPresets(); }
+        custom = true;
+        render();
+      });
+      const txt = el('div', 'txt');
+      txt.appendChild(el('span', null, s.t));
+      if (s.d) txt.appendChild(el('small', null, s.d));
+      row.appendChild(cb); row.appendChild(txt);
+      if (s.est) {
+        const v = estFor(s.est);
+        if (v) row.appendChild(el('div', 'est', '≈ ' + fmtB(v)));
+      }
+      box.appendChild(row);
+    }
+  }
+
+  function renderFiles() {
+    const list = $('fileList');
+    list.innerHTML = '';
+    let tot = 0;
+    for (const f of files) {
+      tot += f.file.size;
+      const box = el('div', 'file');
+      const r1 = el('div', 'row1');
+      r1.appendChild(el('div', 'nm', f.file.name));
+      r1.appendChild(el('div', 'sz', fmtB(f.file.size)));
+      const st = el('div', 'state ' + (f.state === 'klar' ? 'ok' : (f.state === 'fel' ? 'err' : '')), f.state);
+      r1.appendChild(st);
+      const x = el('button', 'x', '×');
+      x.title = 'ta bort';
+      x.addEventListener('click', function () {
+        const i = files.indexOf(f);
+        if (i >= 0) files.splice(i, 1);
+        render();
+      });
+      r1.appendChild(x);
+      box.appendChild(r1);
+      if (f.report) {
+        const meta = el('div', 'meta');
+        const add = function (k, v) {
+          const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; meta.appendChild(s);
+        };
+        add('schema', f.report.schema || '?');
+        add('enhet', f.report.unit.label);
+        add('instanser', fmtN(f.report.instances));
+        add('objekt', fmtN(f.report.roots));
+        if (f.report.tool) add('från', String(f.report.tool).slice(0, 34));
+        box.appendChild(meta);
+      }
+      if (f.err) {
+        const e = el('div', 'meta');
+        e.innerHTML = '<span style="color:var(--danger)">' + f.err + '</span>';
+        box.appendChild(e);
+      }
+      if (f.prog !== undefined && f.prog < 1) {
+        const bar = el('div', 'bar'); const i = el('i');
+        i.style.width = Math.round(f.prog * 100) + '%';
+        bar.appendChild(i); box.appendChild(bar);
+      }
+      list.appendChild(box);
+    }
+    $('fileSum').textContent = files.length ? files.length + ' filer · ' + fmtB(tot) : '';
+    const big = files.some(function (f) { return f.file.size > 600 * 1048576; });
+    $('fileHint').style.display = big ? '' : 'none';
+    $('fileHint').innerHTML = 'En eller flera filer är större än 600 MB. Det kan gå men kräver mycket minne — ' +
+      'stäng andra flikar, och räkna med några minuter per fil.';
+  }
+
+  function renderAnalysis() {
+    const rep = files.find(function (f) { return f.report; });
+    if (!rep) { $('analysisCard').style.display = 'none'; return; }
+    const r = rep.report;
+    $('analysisCard').style.display = '';
+    $('analysisFor').textContent = rep.file.name;
+
+    const cats = $('cats');
+    cats.innerHTML = '';
+    const max = r.cats.length ? r.cats[0].bytes : 1;
+    for (const c of r.cats.slice(0, 11)) {
+      const row = el('div', 'catrow');
+      row.appendChild(el('div', 'lbl', c.label));
+      const tr = el('div', 'track');
+      const i = el('i');
+      i.style.width = Math.max(1, Math.round(c.bytes / max * 100)) + '%';
+      if (c.bytes / r.bytes < 0.02) i.className = 'dim';
+      tr.appendChild(i);
+      row.appendChild(tr);
+      row.appendChild(el('div', 'val', fmtB(c.bytes) + '  ' + (100 * c.bytes / r.bytes).toFixed(1).replace('.', ',') + '%'));
+      cats.appendChild(row);
+    }
+    if (r.round && r.round.longValues) {
+      const row = el('div', 'catrow');
+      row.appendChild(el('div', 'lbl', 'varav onödiga decimaler'));
+      const tr = el('div', 'track');
+      const i = el('i');
+      i.style.width = Math.max(1, Math.round(r.round.saving / max * 100)) + '%';
+      tr.appendChild(i); row.appendChild(tr);
+      row.appendChild(el('div', 'val', fmtB(r.round.saving) + '  kan bort'));
+      cats.appendChild(row);
+    }
+
+    const tt = $('typeTbl');
+    tt.innerHTML = '<tr><th>IFC-klass</th><th class="num">antal</th><th class="num">byte</th><th class="num">andel</th></tr>';
+    for (const t of r.topTypes.slice(0, 18)) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'name', t.name));
+      tr.appendChild(el('td', 'num', fmtN(t.count)));
+      tr.appendChild(el('td', 'num', fmtB(t.bytes)));
+      tr.appendChild(el('td', 'num', (100 * t.bytes / r.bytes).toFixed(1).replace('.', ',') + '%'));
+      tt.appendChild(tr);
+    }
+
+    const et = $('elemTbl');
+    et.innerHTML = '<tr><th>byggdelsklass</th><th class="num">antal</th><th class="num">byte</th></tr>';
+    for (const t of r.elements.slice(0, 24)) {
+      const tr = el('tr');
+      const td = el('td', 'name');
+      const lab = el('label');
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = opts.dropClasses.indexOf(t.name) >= 0;
+      cb.addEventListener('change', function () {
+        const i = opts.dropClasses.indexOf(t.name);
+        if (cb.checked && i < 0) opts.dropClasses.push(t.name);
+        if (!cb.checked && i >= 0) opts.dropClasses.splice(i, 1);
+        custom = true;
+      });
+      lab.appendChild(cb);
+      lab.appendChild(el('span', null, t.name));
+      td.appendChild(lab);
+      tr.appendChild(td);
+      tr.appendChild(el('td', 'num', fmtN(t.count)));
+      tr.appendChild(el('td', 'num', fmtB(t.bytes)));
+      et.appendChild(tr);
+    }
+  }
+
+  /* --- logg --------------------------------------------------------------- */
+  function logLine(text, cls) {
+    const box = $('log');
+    const t = new Date();
+    const ts = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + ':' + ('0' + t.getSeconds()).slice(-2);
+    const line = el('div');
+    const s = el('span', 'ts', ts + '  ');
+    line.appendChild(s);
+    const b = el('span', cls || '', text);
+    line.appendChild(b);
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  /* --- analys av tillagda filer ------------------------------------------- */
+  function addFiles(fl) {
+    for (const file of fl) {
+      const low = file.name.toLowerCase();
+      if (!(low.endsWith('.ifc') || low.endsWith('.ifczip') || low.endsWith('.ifcxml'))) continue;
+      if (low.endsWith('.ifcxml')) { logLine('ifcXML stöds inte: ' + file.name, 'err'); continue; }
+      const f = { file: file, state: 'väntar', report: null, result: null, err: null, prog: 1 };
+      files.push(f);
+      queue = queue.then(function () { return analyse(f); });
+    }
+    render();
+  }
+
+  async function analyse(f) {
+    f.state = 'analyserar'; f.prog = 0; render();
+    try {
+      const buf = await f.file.arrayBuffer();
+      const res = await ask('analyse', { bytes: buf, opts: Object.assign({}, opts) },
+        null, function (phase, frac) { f.prog = frac; renderFiles(); });
+      f.report = res.report;
+      f.state = 'analyserad';
+      f.prog = 1;
+      logLine(f.file.name + ': ' + fmtN(f.report.instances) + ' instanser, ' + f.report.schema +
+              ', ' + f.report.unit.label + ' — ' + fmtB(f.report.round.saving) + ' i onödiga decimaler.');
+    } catch (e) {
+      f.state = 'fel'; f.err = e.message; f.prog = 1;
+      logLine(f.file.name + ': ' + e.message, 'err');
+    }
+    render();
+  }
+
+  /* --- körning ------------------------------------------------------------ */
+  async function runAll() {
+    if (busy) return;
+    busy = true; render();
+    $('resultCard').style.display = '';
+    $('results').innerHTML = '';
+    let totB = 0, totA = 0;
+    for (const f of files) {
+      f.result = null;
+      if (f.state === 'fel') continue;
+      f.state = 'optimerar'; f.prog = 0; render();
+      $('phase').textContent = f.file.name;
+      try {
+        const buf = await f.file.arrayBuffer();
+        const o = Object.assign({}, opts, { name: f.file.name });
+        const res = await ask('optimize', { bytes: buf, opts: o },
+          function (t) { logLine('  ' + t, /VARNING/.test(t) ? 'warn' : ''); },
+          function (phase, frac) {
+            f.prog = frac; renderFiles();
+            $('bar').style.width = Math.round(frac * 100) + '%';
+            $('phase').textContent = f.file.name + ' · ' + phase;
+          });
+        f.result = res;
+        f.state = 'klar'; f.prog = 1;
+        totB += res.report.sizeBefore; totA += res.report.sizeAfter;
+        showResult(f);
+        logLine(f.file.name + ': ' + fmtB(res.report.sizeBefore) + ' → ' + fmtB(res.report.sizeAfter) +
+                ' (' + (100 - 100 * res.report.sizeAfter / res.report.sizeBefore).toFixed(1).replace('.', ',') + ' % mindre)', 'ok');
+      } catch (e) {
+        f.state = 'fel'; f.err = e.message;
+        logLine(f.file.name + ': ' + e.message, 'err');
+      }
+      render();
+    }
+    $('bar').style.width = '100%';
+    $('phase').textContent = 'klart';
+    $('resSum').textContent = totB ? fmtB(totB) + ' → ' + fmtB(totA) + '  (' +
+      (100 - 100 * totA / totB).toFixed(1).replace('.', ',') + ' % mindre)' : '';
+    busy = false; render();
+  }
+
+  function outName(f) {
+    const n = f.file.name.replace(/\.(ifc|ifczip)$/i, '');
+    return n + (opts.suffix || '_optimerad') + f.result.ext;
+  }
+
+  function showResult(f) {
+    const r = f.result.report;
+    const box = el('div', 'res');
+    const top = el('div', 'top');
+    top.appendChild(el('div', 'nm', f.file.name));
+    top.appendChild(el('div', 'pct', (100 - 100 * r.sizeAfter / r.sizeBefore).toFixed(1).replace('.', ',') + ' %'));
+    box.appendChild(top);
+    box.appendChild(el('div', 'sizes', fmtB(r.sizeBefore) + '  →  ' + fmtB(r.sizeAfter) +
+      (r.zip ? '  (zippad)' : '')));
+
+    const bb = el('div', 'bigbar');
+    const a = el('i', 'after'); a.style.width = (100 * r.sizeAfter / r.sizeBefore) + '%';
+    const g = el('i', 'gone'); g.style.width = (100 - 100 * r.sizeAfter / r.sizeBefore) + '%';
+    bb.appendChild(a); bb.appendChild(g);
+    box.appendChild(bb);
+
+    const facts = el('div', 'facts');
+    const add = function (k, v) { const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; facts.appendChild(s); };
+    add('instanser', fmtN(r.instancesBefore) + ' → ' + fmtN(r.instancesAfter));
+    add('dubbletter', fmtN(r.merged));
+    if (r.geom && r.geom.facesBefore) add('ytor', fmtN(r.geom.facesBefore) + ' → ' + fmtN(r.geom.facesAfter));
+    if (r.geom && r.geom.shellsSkipped) add('skal orörda', fmtN(r.geom.shellsSkipped));
+    if (r.weld && r.weld.lists) add('svetsade hörn', fmtN(r.weld.before) + ' → ' + fmtN(r.weld.after));
+    if (r.box && r.box.replaced) add('lådor', fmtN(r.box.replaced));
+    add('tid', (r.totalMs / 1000).toFixed(1).replace('.', ',') + ' s');
+    box.appendChild(facts);
+
+    const vb = el('div', 'vbadge' + ((r.verify && r.verify.ok && !r.dangling) ? '' : ' bad'));
+    vb.textContent = r.dangling ? 'BRUTNA REFERENSER: ' + r.dangling
+      : (r.verify ? (r.verify.ok ? 'kontrollerad — inga brutna referenser' : 'kontroll: ' + r.verify.problems.join('; '))
+                  : 'kontroll ej körd');
+    const vrow = el('div', 'facts');
+    vrow.appendChild(vb);
+    if (r.inputDangling) {
+      const w = el('div', 'vbadge bad');
+      w.textContent = fmtN(r.inputDangling) + ' brutna referenser fanns i originalet';
+      vrow.appendChild(w);
+    }
+    box.appendChild(vrow);
+
+    if (r.removed && r.removed.length) {
+      const d = el('details', 'more');
+      d.appendChild(el('summary', null, 'Vad togs bort?'));
+      const t = el('table', 'tbl');
+      t.innerHTML = '<tr><th>klass</th><th class="num">antal</th></tr>';
+      for (const x of r.removed) {
+        const tr = el('tr');
+        tr.appendChild(el('td', 'name', x.name));
+        tr.appendChild(el('td', 'num', fmtN(x.count)));
+        t.appendChild(tr);
+      }
+      d.appendChild(t);
+      box.appendChild(d);
+    }
+
+    const row = el('div', 'btnrow');
+    const dl = el('button', 'btn sm', 'Ladda ner ' + outName(f));
+    dl.addEventListener('click', function () { download(f); });
+    row.appendChild(dl);
+    box.appendChild(row);
+    $('results').appendChild(box);
+  }
+
+  function download(f) {
+    const url = URL.createObjectURL(f.result.blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = outName(f);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  }
+
+  function reportText() {
+    const rows = ['IFC Optimizer 1.0 — BIM Engine', new Date().toLocaleString('sv-SE'), ''];
+    rows.push('Nivå: ' + (custom ? 'anpassad' : preset));
+    rows.push('Koordinatprecision: ' + (opts.roundCoords ? opts.tolMm + ' mm' : 'av'));
+    rows.push('');
+    for (const f of files) {
+      if (!f.result) continue;
+      const r = f.result.report;
+      rows.push(f.file.name);
+      rows.push('  ' + fmtB(r.sizeBefore) + ' -> ' + fmtB(r.sizeAfter) + '  (' +
+        (100 - 100 * r.sizeAfter / r.sizeBefore).toFixed(1) + ' % mindre)');
+      rows.push('  instanser ' + r.instancesBefore + ' -> ' + r.instancesAfter +
+        ', dubbletter ' + r.merged);
+      if (r.geom && r.geom.facesBefore) rows.push('  ytor ' + r.geom.facesBefore + ' -> ' + r.geom.facesAfter +
+        ' (' + r.geom.shellsSkipped + ' skal orörda)');
+      rows.push('  kontroll: ' + (r.verify ? (r.verify.ok ? 'OK' : r.verify.problems.join('; ')) : 'ej körd'));
+      const top = (r.removed || []).slice(0, 8).map(function (x) { return x.name + ' x' + x.count; });
+      if (top.length) rows.push('  borttaget: ' + top.join(', '));
+      rows.push('');
+    }
+    return rows.join('\n');
+  }
+
+  /* --- händelser ---------------------------------------------------------- */
+  function bind() {
+    const drop = $('drop'), input = $('fileInput');
+    drop.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () { addFiles(input.files); input.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (e) {
+      drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (e) {
+      drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+    });
+    drop.addEventListener('drop', function (ev) {
+      if (ev.dataTransfer && ev.dataTransfer.files) addFiles(ev.dataTransfer.files);
+    });
+    document.addEventListener('dragover', function (e) { e.preventDefault(); });
+    document.addEventListener('drop', function (e) { e.preventDefault(); });
+
+    $('presetSeg').addEventListener('click', function (ev) {
+      const b = ev.target.closest('button');
+      if (b) setPreset(b.dataset.p);
+    });
+    $('tolSeg').addEventListener('click', function (ev) {
+      const b = ev.target.closest('button');
+      if (!b) return;
+      const t = parseFloat(b.dataset.t);
+      if (t === 0) opts.roundCoords = false;
+      else { opts.roundCoords = true; opts.tolMm = t; }
+      render();
+    });
+    $('runBtn').addEventListener('click', runAll);
+    $('dlAll').addEventListener('click', function () {
+      let d = 0;
+      for (const f of files) {
+        if (!f.result) continue;
+        setTimeout(function (g) { return function () { download(g); }; }(f), d);
+        d += 400;
+      }
+    });
+    $('copyRep').addEventListener('click', function () {
+      const t = reportText();
+      navigator.clipboard.writeText(t).then(function () {
+        logLine('Rapporten kopierad.', 'ok');
+      }, function () {
+        logLine('Kunde inte kopiera — markera i loggen i stället.', 'err');
+      });
+    });
+  }
+
+  /* --- start -------------------------------------------------------------- */
+  opts = presetOptions('medel');
+  startWorker();
+  bind();
+  render();
+  logLine('Redo. Allt arbete sker lokalt — inga filer laddas upp någonstans.', 'ok');
+  if (typeof CompressionStream === 'undefined') {
+    logLine('Webbläsaren saknar CompressionStream — .ifczip blir okomprimerad.', 'warn');
+  }
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>IFC Optimizer — testrigg</title>
+<style>
+ body{font-family:ui-monospace,Consolas,monospace;background:#0d0f0e;color:#e8eae9;padding:24px;font-size:13px}
+ pre{white-space:pre-wrap;line-height:1.5}
+ .ok{color:#85B09A}.err{color:#c97a6d}
+</style>
+</head>
+<body>
+<h3>IFC Optimizer — testrigg</h3>
+<pre id="out">väntar…</pre>
+
+<script src="../src/engine/00-util.js"></script>
+<script src="../src/engine/05-options.js"></script>
+<script src="../src/engine/10-parse.js"></script>
+<script src="../src/engine/20-types.js"></script>
+<script src="../src/engine/30-strip.js"></script>
+<script src="../src/engine/40-emit.js"></script>
+<script src="../src/engine/50-dedup.js"></script>
+<script src="../src/engine/60-geom.js"></script>
+<script src="../src/engine/62-tess.js"></script>
+<script src="../src/engine/70-write.js"></script>
+<script src="../src/engine/75-analyse.js"></script>
+<script src="../src/engine/80-api.js"></script>
+<script>
+const out = document.getElementById('out');
+const lines = [];
+function say(s, cls) {
+  lines.push(s);
+  out.innerHTML = lines.map(function (l) { return '<span class="' + (cls || '') + '">' + l.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>'; }).join('\n');
+}
+
+const SUITE = [
+  ['test/sample_2x3.ifc', 'latt', null, 'suite_2x3_latt.ifc'],
+  ['test/sample_2x3.ifc', 'medel', null, 'suite_2x3_medel.ifc'],
+  ['test/sample_2x3.ifc', 'aggressiv', { zip: false }, 'suite_2x3_aggr.ifc'],
+  ['test/sample_2x3.ifc', 'medel', { boxify: true, mergeCoplanar: false }, 'suite_2x3_box.ifc'],
+  ['test/sample_2x3.ifc', 'latt', { roundCoords: false, dedup: false, gc: false, renumber: false, stamp: false, unifyOwnerHistory: false }, 'suite_2x3_noop.ifc'],
+  ['test/sample_ifc4_tess.ifc', 'latt', null, 'suite_ifc4_latt.ifc'],
+  ['test/sample_ifc4_tess.ifc', 'aggressiv', { zip: false, boxify: false }, 'suite_ifc4_aggr.ifc'],
+  ['test/sample_ifc4_tess.ifc', 'medel', { boxify: true }, 'suite_ifc4_box.ifc'],
+  ['test/sample_edge.ifc', 'latt', null, 'suite_edge_latt.ifc'],
+  ['test/sample_edge.ifc', 'medel', null, 'suite_edge_medel.ifc'],
+  ['test/sample_edge.ifc', 'aggressiv', { zip: false }, 'suite_edge_aggr.ifc'],
+  ['test/sample_badguid.ifc', 'medel', null, 'suite_badguid.ifc'],
+  ['test/out/sample_2x3_aggr.ifczip', 'medel', { zip: false }, 'suite_fromzip.ifc']
+];
+
+async function runOne(file, preset, extra, outName, quiet) {
+  const resp = await fetch('/' + file.replace(/^\//, ''));
+  if (!resp.ok) throw new Error('kunde inte hämta ' + file + ' (' + resp.status + ')');
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  const o = presetOptions(preset);
+  if (extra) Object.assign(o, extra);
+  o.name = file.split('/').pop();
+  const hooks = { log: function (t) { if (!quiet) say('    · ' + t); }, prog: function () {} };
+  const res = await optimizeFile(buf, o, hooks, null);
+  const rep = res.report;
+  if (outName) {
+    await fetch('/__out/' + outName, { method: 'POST', body: new Blob(res.blocks) });
+  }
+  return {
+    file: file, preset: preset, extra: extra || {}, out: outName,
+    before: rep.sizeBefore, after: rep.sizeAfter,
+    saved: +(100 - 100 * rep.sizeAfter / rep.sizeBefore).toFixed(2),
+    inst: rep.instancesBefore + '->' + rep.instancesAfter,
+    merged: rep.merged, dangling: rep.dangling,
+    verify: rep.verify ? (rep.verify.ok ? 'OK' : rep.verify.problems.join('; ')) : 'ej körd',
+    geom: rep.geom ? (rep.geom.facesBefore + '->' + rep.geom.facesAfter + ' ytor, ' + rep.geom.shellsSkipped + ' skal hoppade') : null,
+    weld: rep.weld && rep.weld.lists ? (rep.weld.before + '->' + rep.weld.after + ' punkter') : null,
+    box: rep.box && rep.box.replaced ? (rep.box.replaced + ' ersatta, ' + rep.box.skipped + ' hoppade') : null,
+    ms: rep.totalMs
+  };
+}
+
+async function main() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('suite') === '1') {
+    for (const row of SUITE) {
+      say('=== ' + row[0] + ' / ' + row[1] + ' ' + JSON.stringify(row[2] || {}));
+      const r = await runOne(row[0], row[1], row[2], row[3], false);
+      say('SUITE:' + JSON.stringify(r));
+    }
+    return;
+  }
+  const file = q.get('f') || 'test/sample_2x3.ifc';
+  const preset = q.get('preset') || 'medel';
+  const extra = q.get('opts');
+  const post = q.get('post');
+  const analyseOnly = q.get('analyse') === '1';
+
+  say('hämtar ' + file);
+  const t0 = performance.now();
+  const resp = await fetch('/' + file.replace(/^\//, ''));
+  if (!resp.ok) throw new Error('kunde inte hämta ' + file + ' (' + resp.status + ')');
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  say('läst ' + buf.length + ' byte på ' + Math.round(performance.now() - t0) + ' ms');
+
+  const o = presetOptions(preset);
+  if (extra) Object.assign(o, JSON.parse(extra));
+  say('inställningar: ' + JSON.stringify(o));
+
+  const hooks = {
+    log: function (t) { say('  · ' + t); },
+    prog: function (p, f) { }
+  };
+
+  if (analyseOnly) {
+    const a = await analyseFile(buf, o, hooks);
+    const r = a.report;
+    say('RESULT:' + JSON.stringify({
+      bytes: r.bytes, instances: r.instances, types: r.types, roots: r.roots,
+      schema: r.schema, unit: r.unit, tool: r.tool, coordDec: r.coordDec,
+      round: r.round, cats: r.cats.map(function (c) { return [c.label, Math.round(c.bytes), c.count]; }),
+      top: r.topTypes.slice(0, 12).map(function (t) { return [t.name, t.count, Math.round(t.bytes)]; }),
+      elements: r.elements.slice(0, 10).map(function (t) { return [t.name, t.count]; }),
+      est: r.est
+    }));
+    return;
+  }
+
+  const res = await optimizeFile(buf, o, hooks, null);
+  const rep = res.report;
+  say('RESULT:' + JSON.stringify({
+    schema: rep.analysis.schema,
+    unit: rep.analysis.unit.label,
+    coordDec: rep.analysis.coordDec,
+    sizeBefore: rep.sizeBefore, sizeAfter: rep.sizeAfter,
+    saved: +(100 - 100 * rep.sizeAfter / rep.sizeBefore).toFixed(2),
+    instancesBefore: rep.instancesBefore, instancesAfter: rep.instancesAfter,
+    merged: rep.merged, rounds: rep.dedupRounds, resurrected: rep.resurrected,
+    dangling: rep.dangling,
+    verify: rep.verify,
+    geom: rep.geom, weld: rep.weld, box: rep.box,
+    removed: rep.removed.slice(0, 14).map(function (r) { return r.name + '×' + r.count; }),
+    timing: rep.timing, totalMs: rep.totalMs
+  }));
+
+  if (post) {
+    const blob = new Blob(res.blocks);
+    const r2 = await fetch('/__out/' + post, { method: 'POST', body: blob });
+    say('sparade ' + post + ': ' + (await r2.text()));
+  }
+}
+
+main().then(function () { say('KLAR', 'ok'); }, function (e) {
+  say('FEL: ' + (e && e.message), 'err');
+  say(String(e && e.stack), 'err');
+  console.error(e);
+});
+</script>
+</body>
+</html>

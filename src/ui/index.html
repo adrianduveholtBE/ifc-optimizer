@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFC Optimizer — BIM Engine</title>
+<style>
+/*@CSS*/
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <img class="logo-mark" src="/*@LOGO*/" alt="BIM Engine">
+      <div>
+        <h1>IFC Optimizer</h1>
+        <div class="sub">BIM Engine · krymper IFC utan att tappa modellen</div>
+      </div>
+    </div>
+    <div class="tag" id="engineState">motor · startar</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <!-- 1 · FILER -->
+      <div class="card">
+        <h2>1 · Filer <span class="right" id="fileSum"></span></h2>
+        <div class="drop" id="drop">
+          <div class="ic">⬇</div>
+          <p><strong>Dra in IFC-filer här</strong> eller klicka för att välja<br>
+          <span class="muted">.ifc och .ifczip · flera samtidigt · inget lämnar datorn</span></p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".ifc,.ifczip,.ifcZIP,.IFC" style="display:none">
+        <div class="filelist" id="fileList"></div>
+        <div class="hint" id="fileHint" style="display:none"></div>
+      </div>
+
+      <!-- 2 · ANALYS -->
+      <div class="card" id="analysisCard" style="display:none">
+        <h2>2 · Var ligger byten? <span class="right" id="analysisFor"></span></h2>
+        <div class="cats" id="cats"></div>
+        <details class="more" id="typeMore">
+          <summary>Visa de tyngsta IFC-klasserna</summary>
+          <table class="tbl" id="typeTbl"></table>
+        </details>
+        <details class="more" id="elemMore">
+          <summary>Välj byggdelsklasser att ta bort helt</summary>
+          <div class="hint">Kryssa klasser som inte behövs i den här leveransen — t.ex. armering eller inredning. Objekten och deras geometri tas bort ur filen.</div>
+          <table class="tbl" id="elemTbl"></table>
+        </details>
+      </div>
+    </div>
+
+    <div>
+      <!-- 3 · NIVÅ -->
+      <div class="card">
+        <h2>3 · Nivå</h2>
+        <div class="seg" id="presetSeg">
+          <button data-p="latt">Lätt</button>
+          <button data-p="medel" class="on">Medel</button>
+          <button data-p="aggressiv">Aggressiv</button>
+        </div>
+        <div class="levelnote" id="levelNote"></div>
+
+        <div class="field">
+          <label>Koordinatprecision</label>
+          <div class="seg sm" id="tolSeg">
+            <button data-t="0.1">0,1 mm</button>
+            <button data-t="0.01" class="on">0,01 mm</button>
+            <button data-t="0.001">0,001 mm</button>
+            <button data-t="0">av</button>
+          </div>
+          <div class="hint" id="tolNote"></div>
+        </div>
+
+        <details class="more" id="advMore">
+          <summary>Alla inställningar</summary>
+          <div class="opts" id="opts"></div>
+        </details>
+
+        <button class="btn" id="runBtn" disabled>Optimera</button>
+        <div class="progress"><div class="bar" id="bar"></div></div>
+        <div class="phase" id="phase"></div>
+        <div class="log" id="log"></div>
+      </div>
+
+      <!-- 4 · RESULTAT -->
+      <div class="card" id="resultCard" style="display:none">
+        <h2>4 · Resultat <span class="right" id="resSum"></span></h2>
+        <div id="results"></div>
+        <div class="btnrow">
+          <button class="btn ghost sm" id="dlAll">Ladda ner alla</button>
+          <button class="btn ghost sm" id="copyRep">Kopiera rapport</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    IFC Optimizer 1.0 · BIM Engine AB · allt arbete sker lokalt i webbläsaren<br>
+    frågor om verktyget — kontakta Adrian
+  </footer>
+</div>
+
+<script id="engineSrc" type="text/js-worker">
+/*@ENGINE*/
+</script>
+<script>
+/*@OPTIONS*/
+</script>
+<script>
+/*@APP*/
+</script>
+</body>
+</html>

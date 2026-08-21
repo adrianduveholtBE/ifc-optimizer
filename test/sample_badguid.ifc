@@ -1,0 +1,48 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');
+FILE_NAME('sample_badguid.ifc','2026-08-21T09:00:00',(''),(''),'','Kantfallsgenerator','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+
+DATA;
+#1= IFCORGANIZATION($,'BIM Engine',$,$,$);
+/* en kommentar mellan instanser */
+#2= IFCAPPLICATION(#1,'1.0','Kantfall','KF');
+#3= IFCCARTESIANPOINT((0.,0.,0.));
+#4= IFCDIRECTION((0.,0.,1.));
+#5= IFCDIRECTION((1.,0.,0.));
+#6= IFCAXIS2PLACEMENT3D(#3,
+      #4,
+      #5);
+#7= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.0E-05,#6,$);
+#8= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,#7,$,.MODEL_VIEW.,$);
+#9= IFCSIUNIT(*,.LENGTHUNIT.,.MILLI.,.METRE.);
+#10= IFCUNITASSIGNMENT((#9));
+#11= IFCPROJECT('2Kantfall000000000001',$,'Kantfall /* inte kommentar */',$,$,$,$,(#7),#10);
+#12= IFCLOCALPLACEMENT($,#6);
+#13= IFCSITE('2Kantsite000000000010',$,'Site #42 med ''citat''',$,$,#12,$,$,.ELEMENT.,$,$,$,$,$);
+/* nasta instans ar utspridd over flera rader med konstig indentering */
+#14= IFCCARTESIANPOINT(
+        (1000.000000000001,
+         2000.5000000000005,
+         3.0E-07)
+     );
+#15= IFCCARTESIANPOINT((1000.000000000001,2000.5000000000005,3.0E-07));
+#16= IFCPOLYLINE((#14,#15));
+#17= IFCSHAPEREPRESENTATION(#8,'Body','Curve3D',(#16));
+#18= IFCPRODUCTDEFINITIONSHAPE($,$,(#17));
+#19= IFCBUILDINGELEMENTPROXY('2Kantproxy00000000010',$,'Proxy med \X2\00C5\X0\ i namnet',$,$,#12,#18,$);
+#20= IFCPROPERTYSINGLEVALUE('Litet',$,IFCLENGTHMEASURE(1.5E-08),$);
+#21= IFCPROPERTYSINGLEVALUE('Text',$,IFCTEXT('kommatecken, parentes ) och #99'),$);
+#22= IFCPROPERTYSET('2Kantpset000000000010',$,'Pset_Test',$,(#20,#21));
+#23= IFCRELDEFINESBYPROPERTIES('2Kantrelpset000000001',$,$,$,(#19),#22);
+#24= IFCSPACE('2Kantrum0000000000010',$,'Rum utan foralder',$,$,#12,$,$,.ELEMENT.,.INTERNAL.,0.);
+#25= IFCRELAGGREGATES('2Kantrelagg0000000010',$,$,$,#11,(#13));
+#26= IFCRELCONTAINEDINSPATIALSTRUCTURE('2Kantrelcont000000010',$,$,$,(#19,#24),#13);
+#27= IFCPRESENTATIONLAYERASSIGNMENT('A-LAGER',$,(#17),$);
+/* referens till nagot som inte finns - ska inte krascha */
+#28= IFCRELASSOCIATESMATERIAL('2Kantrelmat0000000010',$,$,$,(#19),#9999);
+#29= IFCPOLYLINE((#14,#15,#14));
+ENDSEC;
+END-ISO-10303-21;

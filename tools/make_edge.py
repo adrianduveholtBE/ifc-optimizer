@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Genererar en medvetet elak IFC-fil for att testa lasaren.
+
+Innehaller: instanser over flera rader, /* kommentarer */, strangar med
+bradgard och escapade citattecken, \\X2\\-escapes, exponentform, harledda
+attribut (*), heltal som inte far bli flyttal, en trasig referens i
+indata, ett rum utan foralder och IFC4-stil med $ som agarhistorik.
+"""
+import io, os
+
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'test')
+
+BODY = r"""#1= IFCORGANIZATION($,'BIM Engine',$,$,$);
+/* en kommentar mellan instanser */
+#2= IFCAPPLICATION(#1,'1.0','Kantfall','KF');
+#3= IFCCARTESIANPOINT((0.,0.,0.));
+#4= IFCDIRECTION((0.,0.,1.));
+#5= IFCDIRECTION((1.,0.,0.));
+#6= IFCAXIS2PLACEMENT3D(#3,
+      #4,
+      #5);
+#7= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.0E-05,#6,$);
+#8= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,#7,$,.MODEL_VIEW.,$);
+#9= IFCSIUNIT(*,.LENGTHUNIT.,.MILLI.,.METRE.);
+#10= IFCUNITASSIGNMENT((#9));
+#11= IFCPROJECT('2Kantfall0000000000010',$,'Kantfall /* inte kommentar */',$,$,$,$,(#7),#10);
+#12= IFCLOCALPLACEMENT($,#6);
+#13= IFCSITE('2Kantsite0000000000100',$,'Site #42 med ''citat''',$,$,#12,$,$,.ELEMENT.,$,$,$,$,$);
+/* nasta instans ar utspridd over flera rader med konstig indentering */
+#14= IFCCARTESIANPOINT(
+        (1000.000000000001,
+         2000.5000000000005,
+         3.0E-07)
+     );
+#15= IFCCARTESIANPOINT((1000.000000000001,2000.5000000000005,3.0E-07));
+#16= IFCPOLYLINE((#14,#15));
+#17= IFCSHAPEREPRESENTATION(#8,'Body','Curve3D',(#16));
+#18= IFCPRODUCTDEFINITIONSHAPE($,$,(#17));
+#19= IFCBUILDINGELEMENTPROXY('2Kantproxy000000000100',$,'Proxy med \X2\00C5\X0\ i namnet',$,$,#12,#18,$);
+#20= IFCPROPERTYSINGLEVALUE('Litet',$,IFCLENGTHMEASURE(1.5E-08),$);
+#21= IFCPROPERTYSINGLEVALUE('Text',$,IFCTEXT('kommatecken, parentes ) och #99'),$);
+#22= IFCPROPERTYSET('2Kantpset0000000000100',$,'Pset_Test',$,(#20,#21));
+#23= IFCRELDEFINESBYPROPERTIES('2Kantrelpset0000000010',$,$,$,(#19),#22);
+#24= IFCSPACE('2Kantrum00000000000100',$,'Rum utan foralder',$,$,#12,$,$,.ELEMENT.,.INTERNAL.,0.);
+#25= IFCRELAGGREGATES('2Kantrelagg00000000100',$,$,$,#11,(#13));
+#26= IFCRELCONTAINEDINSPATIALSTRUCTURE('2Kantrelcont0000000100',$,$,$,(#19,#24),#13);
+#27= IFCPRESENTATIONLAYERASSIGNMENT('A-LAGER',$,(#17),$);
+/* referens till nagot som inte finns - ska inte krascha */
+#28= IFCRELASSOCIATESMATERIAL('2Kantrelmat00000000100',$,$,$,(#19),#9999);
+#29= IFCPOLYLINE((#14,#15,#14));
+"""
+
+def write(name, body, header_comment=True):
+    head = ("ISO-10303-21;\n"
+            + ("/* kommentar i headern */\n" if header_comment else "")
+            + "HEADER;\n"
+              "FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');\n"
+              "FILE_NAME('%s','2026-08-21T09:00:00',(''),(''),'','Kantfallsgenerator','');\n"
+              "FILE_SCHEMA(('IFC4'));\n"
+              "ENDSEC;\n\nDATA;\n" % name)
+    tail = "ENDSEC;\nEND-ISO-10303-21;\n"
+    q = os.path.join(OUT, name)
+    io.open(q, 'w', encoding='ascii', newline='\r\n').write(head + body + tail)
+    print('%-24s %8d B' % (name, os.path.getsize(q)))
+
+
+def main():
+    write('sample_edge.ifc', BODY)
+    # samma fil men med 21 tecken langa GlobalId: rotobjekten ska da inte
+    # kunna hittas, och skraosamlingens skyddsnat ska slaa till
+    import re as _re
+    bad = _re.sub(r"'(2Kant[^']*)'", lambda m: "'" + m.group(1)[:-1] + "'", BODY)
+    write('sample_badguid.ifc', bad, False)
+
+
+if __name__ == '__main__':
+    main()

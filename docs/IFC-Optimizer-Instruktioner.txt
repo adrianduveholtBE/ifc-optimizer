@@ -1,0 +1,84 @@
+========================================================
+  IFC OPTIMIZER  —  BIM ENGINE AB
+  Krymper IFC-filer utan att tappa modellen — allt
+  lokalt i webbläsaren
+========================================================
+
+
+VAD VERKTYGET GÖR
+-----------------
+IFC Optimizer gör IFC-filer mindre så att de går att
+mejla, ladda upp och öppna på en projektlaptop. Allt sker
+lokalt i webbläsaren — ingen modell laddas upp någonstans.
+Efter varje körning läses resultatet om och kontrolleras,
+så att varje referens pekar på ett objekt som finns. På en
+166 MB stommodell från Revit blev filen 34,6 / 46,5 / 90,1
+% mindre på de tre nivåerna, med alla byggdelar kvar.
+
+
+KOM IGÅNG
+---------
+- Ladda ner IFC Optimizer v1.html och öppna den i Chrome
+  eller Edge. Ingen installation, fungerar offline.
+
+- Uppe till höger ska det stå "motor · redo (lokalt)".
+
+
+SÅ HÄR GÖR DU
+-------------
+1. Dra in filerna under 1 · Filer. Både .ifc och .ifczip,
+   flera samtidigt.
+
+2. Läs 2 · Var ligger byten? — staplarna visar vad som tar
+   plats i just din modell och hur mycket varje val sparar.
+
+3. Välj nivå under 3 · Nivå. Kryssa i Alla inställningar om
+   du vill styra varje del själv.
+
+4. Klicka Optimera och ladda ner. Filen får tillägget
+   _optimerad.
+
+
+DE TRE NIVÅERNA
+---------------
+- Lätt — förlustfri. Avrundar onödiga decimaler, slår ihop
+  identiska objekt och städar bort skräp. Ingen
+  information försvinner.
+
+- Medel — standardvalet för samordning. Tar bort
+  egenskaper, mängder, typer, material, 2D och lager.
+  Geometri och färger är kvar.
+
+- Aggressiv — minsta fil. Tar även bort färger, rum,
+  öppningar och rutnät och sparar som .ifczip.
+
+
+BRA ATT VETA
+------------
+- Utgå alltid från originalfilen och spara aldrig över
+  den.
+
+- Koordinatprecisionen är förvalt 0,01 mm — hundra gånger
+  finare än byggtoleransen.
+
+- Behåll egenskaper om modellen ska mängdas eller
+  kravgranskas.
+
+- Öppningar bör bara tas bort om mottagarens visare inte
+  behöver dem — annars kan hål i väggar försvinna.
+
+- I analysen kan du kryssa bort hela byggdelsklasser,
+  t.ex. armering.
+
+- Öppnad direkt från disk kan fönstret stå stilla medan en
+  stor modell arbetas igenom. Det är normalt — låt det
+  jobba.
+
+- Granska alltid resultatet i ACC eller Solibri innan
+  filen går vidare.
+
+
+--------------------------------------------------------
+Interna frågor om verktyget — kontakta Adrian.
+BIM Engine AB
+--------------------------------------------------------
