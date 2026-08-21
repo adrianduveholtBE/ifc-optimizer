@@ -70,6 +70,10 @@ BRA ATT VETA
 - I analysen kan du kryssa bort hela byggdelsklasser,
   t.ex. armering.
 
+- Filer över 600 MB körs i snabbläge: bara avrundning och
+  ifczip, men de går igenom. En 1,8 GB-modell blir ca 300
+  MB.
+
 - Öppnad direkt från disk kan fönstret stå stilla medan en
   stor modell arbetas igenom. Det är normalt — låt det
   jobba.

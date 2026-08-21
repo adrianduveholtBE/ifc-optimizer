@@ -46,6 +46,7 @@
         "Behåll **egenskaper** om modellen ska mängdas eller kravgranskas.",
         "**Öppningar** bör bara tas bort om mottagarens visare inte behöver dem — annars kan hål i väggar försvinna.",
         "I analysen kan du kryssa bort **hela byggdelsklasser**, t.ex. armering.",
+        "Filer över **600 MB** körs i **snabbläge**: bara avrundning och ifczip, men de går igenom. En 1,8 GB-modell blir ca 300 MB.",
         "Öppnad direkt från disk kan fönstret stå stilla medan en stor modell arbetas igenom. Det är normalt — låt det jobba.",
         "Granska alltid resultatet i **ACC eller Solibri** innan filen går vidare."
       ]

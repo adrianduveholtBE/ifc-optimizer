@@ -232,6 +232,48 @@ async function zipSingle(nameStr, blocks) {
   return parts;
 }
 
+/* --- ZIP: packa en Blob (CRC och obehandlad storlek redan kända) ---------
+   Används av snabbläget, där utdatat aldrig ligger samlat i minnet.        */
+async function zipFromBlob(nameStr, blob, crc, rawSize) {
+  const nameB = asciiBytes(nameStr);
+  let payload = blob, method = 0;
+  if (typeof CompressionStream !== 'undefined' && blob.stream) {
+    const cs = new CompressionStream('deflate-raw');
+    payload = await new Response(blob.stream().pipeThrough(cs)).blob();
+    method = 8;
+  }
+  const head = new DataView(new ArrayBuffer(30));
+  head.setUint32(0, 0x04034b50, true);
+  head.setUint16(4, 20, true);
+  head.setUint16(6, 0x0800, true);
+  head.setUint16(8, method, true);
+  head.setUint16(12, 0x21, true);
+  head.setUint32(14, crc, true);
+  head.setUint32(18, payload.size, true);
+  head.setUint32(22, rawSize, true);
+  head.setUint16(26, nameB.length, true);
+
+  const cd = new DataView(new ArrayBuffer(46));
+  cd.setUint32(0, 0x02014b50, true);
+  cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+  cd.setUint16(8, 0x0800, true);
+  cd.setUint16(10, method, true);
+  cd.setUint16(14, 0x21, true);
+  cd.setUint32(16, crc, true);
+  cd.setUint32(20, payload.size, true);
+  cd.setUint32(24, rawSize, true);
+  cd.setUint16(28, nameB.length, true);
+
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(8, 1, true); eocd.setUint16(10, 1, true);
+  eocd.setUint32(12, 46 + nameB.length, true);
+  eocd.setUint32(16, 30 + nameB.length + payload.size, true);
+
+  return new Blob([new Uint8Array(head.buffer), nameB, payload,
+                   new Uint8Array(cd.buffer), nameB, new Uint8Array(eocd.buffer)]);
+}
+
 /* --- ZIP: läs första IFC-posten ur ett arkiv ----------------------------- */
 async function unzipFirstIfc(u8) {
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);

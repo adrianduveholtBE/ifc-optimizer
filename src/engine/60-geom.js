@@ -15,7 +15,7 @@ function ensureCapacity(m, st, extra) {
   if (m.ids.length >= need) return;
   const cap = Math.max(need, m.ids.length + (m.ids.length >> 1) + 64);
   const g32 = function (a) { const b = new Uint32Array(cap); b.set(a); return b; };
-  m.ids = g32(m.ids); m.sOff = g32(m.sOff); m.pOff = g32(m.pOff); m.eOff = g32(m.eOff);
+  m.ids = g32(m.ids); m.pOff = g32(m.pOff); m.eOff = g32(m.eOff);
   const t16 = new Uint16Array(cap); t16.set(m.tId); m.tId = t16;
   const a8 = new Uint8Array(cap); a8.set(st.alive); st.alive = a8;
   const r8 = new Uint8Array(cap); r8.set(st.roots); st.roots = r8;
@@ -31,7 +31,7 @@ function addInstance(m, st, typeName, paramsStr) {
   ensureCapacity(m, st, 1);
   const i = m.n++;
   const id = ++m.maxId;
-  m.ids[i] = id; m.sOff[i] = 0; m.pOff[i] = 0; m.eOff[i] = 0;
+  m.ids[i] = id; m.pOff[i] = 0; m.eOff[i] = 0;
   m.tId[i] = internType(m, typeName);
   st.alive[i] = 1; st.roots[i] = 0;
   st.override.set(i, paramsStr);

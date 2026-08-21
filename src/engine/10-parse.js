@@ -7,12 +7,43 @@
 
 const T_UNKNOWN = 0;
 
+/* --------------------------------------------------------------------------
+   IdIndex — uppslag instansnummer -> index, på typade fält.
+   En JS Map tar slut vid ~16,7 miljoner poster, vilket en riktigt stor modell
+   överskrider. Öppen adressering har ingen sådan gräns.
+   -------------------------------------------------------------------------- */
+class IdIndex {
+  constructor(n) {
+    let cap = 16;
+    const want = Math.max(16, Math.ceil((n + 1) / 0.6));
+    while (cap < want) cap *= 2;
+    this.mask = cap - 1;
+    this.keys = new Uint32Array(cap);      // 0 = ledig plats (IFC-id börjar på 1)
+    this.vals = new Uint32Array(cap);      // index + 1
+  }
+  set(id, v) {
+    if (id === 0) return;
+    const k = this.keys, mask = this.mask;
+    let i = (Math.imul(id, 2654435761) >>> 0) & mask;
+    while (k[i] !== 0 && k[i] !== id) i = (i + 1) & mask;
+    k[i] = id; this.vals[i] = v;
+  }
+  get(id) {
+    const k = this.keys, mask = this.mask;
+    let i = (Math.imul(id, 2654435761) >>> 0) & mask;
+    while (k[i] !== 0) {
+      if (k[i] === id) return this.vals[i];
+      i = (i + 1) & mask;
+    }
+    return 0;
+  }
+}
+
 class IfcModel {
   constructor(buf) {
     this.buf = buf;
     this.n = 0;
     this.ids = null;      // Uint32Array  — instansnummer (#123 -> 123)
-    this.sOff = null;     // Uint32Array  — offset för '#'
     this.pOff = null;     // Uint32Array  — offset för '(' som öppnar attributlistan
     this.eOff = null;     // Uint32Array  — offset efter ')' som stänger den
     this.tId = null;      // Uint16Array  — typindex
@@ -40,12 +71,11 @@ class IfcModel {
       if (x !== undefined) return x - 1;
     }
     if (this._mapArr) { const v = id < this._map.length ? this._map[id] : 0; return v - 1; }
-    const v = this._map.get(id); return v === undefined ? -1 : v - 1;
+    return this._map.get(id) - 1;
   }
   /* attributlistans inre gränser (utan parenteser) */
   pStart(i) { return this.pOff[i] + 1; }
   pEnd(i) { return this.eOff[i] - 1; }
-  stmtLen(i) { return this.eOff[i] - this.sOff[i]; }
 }
 
 /* hoppa över blanktecken och /* kommentarer *\/ */
@@ -178,17 +208,24 @@ function parseIndex(buf, progress) {
   m.n = count;
   m.maxId = maxId;
   m.ids = new Uint32Array(count);
-  m.sOff = new Uint32Array(count);
   m.pOff = new Uint32Array(count);
   m.eOff = new Uint32Array(count);
   m.tId = new Uint16Array(count);
 
-  if (maxId <= 20000000) { m._map = new Uint32Array(maxId + 1); m._mapArr = true; }
-  else { m._map = new Map(); m._mapArr = false; }
+  /* Tät numrering (normalfallet) -> direktindexerat fält, 4 byte per id.
+     Gles eller extremt hög numrering -> hashtabell dimensionerad efter
+     antalet instanser i stället för högsta id. */
+  if (maxId <= 20000000 || (maxId <= count * 4 + 1000000 && maxId <= 260000000)) {
+    m._map = new Uint32Array(maxId + 1); m._mapArr = true;
+  } else {
+    m._map = new IdIndex(count); m._mapArr = false;
+  }
 
   m.typeNames.push('*UNKNOWN*'); m.typeIds.set('*UNKNOWN*', 0);
 
-  // Pass 2: fyll indexet
+  // Pass 2: fyll indexet. Typstatistiken summeras här, så att vi slipper
+  // spara statementets startoffset för varje instans.
+  const tCount = [], tBytes = [];
   {
     let i = m.headEnd, w = 0;
     const end = m.dataEnd;
@@ -223,8 +260,10 @@ function parseIndex(buf, progress) {
         }
         tid = t;
       }
-      m.ids[w] = id; m.sOff[w] = s; m.pOff[w] = j; m.eOff[w] = after; m.tId[w] = tid;
+      m.ids[w] = id; m.pOff[w] = j; m.eOff[w] = after; m.tId[w] = tid;
       if (m._mapArr) m._map[id] = w + 1; else m._map.set(id, w + 1);
+      tCount[tid] = (tCount[tid] || 0) + 1;
+      tBytes[tid] = (tBytes[tid] || 0) + (after - s) + 2;   // +2 ~ ';' + radbrytning
       w++;
       if (progress && (w % nextProg) === 0) progress(w / count);
 
@@ -235,14 +274,12 @@ function parseIndex(buf, progress) {
     m.n = w;
   }
 
-  // typstatistik
   const nt = m.typeNames.length;
   m.typeCount = new Uint32Array(nt);
   m.typeBytes = new Float64Array(nt);
-  for (let i = 0; i < m.n; i++) {
-    const t = m.tId[i];
-    m.typeCount[t]++;
-    m.typeBytes[t] += (m.eOff[i] - m.sOff[i]) + 2;   // +2 ~ ';' + radbrytning
+  for (let t = 0; t < nt; t++) {
+    m.typeCount[t] = tCount[t] || 0;
+    m.typeBytes[t] = tBytes[t] || 0;
   }
   return m;
 }

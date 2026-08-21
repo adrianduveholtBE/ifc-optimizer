@@ -43,6 +43,32 @@ python build.py --install   # kopierar dessutom till en intern mapp,
 | Utskrift | Numrerar om instanserna, skriver ny fil, valfritt som `.ifczip`. |
 | Kontroll | Läser om resultatet och verifierar att varje referens pekar på ett objekt som finns. Brutna referenser som redan fanns i originalet redovisas separat. |
 
+## Snabbläge för mycket stora filer
+
+Hela optimeringen bygger på ett instansindex och en referensgraf i minnet.
+Kostnaden växer med antalet instanser, och över ungefär **600 MB** ryms det
+inte i en webbläsarflik. Då kopplas **snabbläget** in automatiskt
+(`forceStream` tvingar det): filen läses i 32 MB-bitar och skrivs ut i bitar,
+utan index och utan graf. Bara sådant som är säkert utan att känna hela
+modellen görs:
+
+* avrundning av flyttal i geometrityperna (FPR)
+* `#12= IFCX(` normaliseras till `#12=IFCX(`
+* valfri ifczip-packning
+
+Instansnumren rörs aldrig, så referenserna kan per konstruktion inte gå
+sönder — det är verifierat: efter en körning på 166 MB är alla 3 126 884
+instansnummer identiska i samma ordning, med noll brutna referenser.
+Minnesåtgången är konstant oavsett filstorlek, eftersom utdatat läggs i
+Blob-delar som webbläsaren kan sidväxla till disk.
+
+Mätt på samma 166 MB-modell: 150,5 MB rå (−9,5 %, enbart avrundningen) eller
+**27,5 MB som ifczip (−83,5 %)** på 30 sekunder. En 1,8 GB-fil landar alltså
+på i storleksordningen 300 MB som ifczip.
+
+Enheten läses ur början av DATA-sektionen. Hittas ingen längdenhet avrundas
+ingenting — fel enhetsantagande skulle betyda fel tolerans.
+
 ## Mätt på en riktig modell
 
 166 MB IFC2X3 från Revit (stommodell, 3,13 milj. instanser, mm-enheter):
@@ -52,6 +78,9 @@ python build.py --install   # kopierar dessutom till en intern mapp,
 | Lätt | 108,8 MB | 34,6 % | ~6 s |
 | Medel | 89,1 MB | 46,5 % | ~13 s |
 | Aggressiv (.ifczip) | 16,5 MB | 90,1 % | ~9 s |
+
+Samma modell i snabbläge: 27,5 MB (90,1 % → 83,5 %, alltså sämre än full
+optimering, men läget finns för filer som inte går att optimera fullt ut).
 
 Alla tre kontrollerade: 0 brutna referenser, alla byggdelar kvar
 (6 886 IfcMember, 400 IfcColumn, 485 IfcBeam, 268 väggar, 462 öppningar …),

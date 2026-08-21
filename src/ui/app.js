@@ -58,7 +58,9 @@
     if (direct) return;
     try {
       worker = null;
-      direct = new Function(src + '\nreturn { analyseFile: analyseFile, optimizeFile: optimizeFile };')();
+      direct = new Function(src + '\nreturn { analyseFile: analyseFile, optimizeFile: optimizeFile,' +
+        ' streamOptimize: streamOptimize, readForAnalysis: readForAnalysis,' +
+        ' scaleReport: scaleReport, useStreaming: useStreaming };')();
       $('engineState').textContent = 'motor · redo (förgrund)';
       logLine('Webbläsaren tillåter ingen bakgrundstråd här — motorn körs i förgrunden. ' +
               'Gränssnittet står stilla medan en stor fil arbetas igenom.', 'warn');
@@ -72,22 +74,30 @@
   function ask(cmd, payload, onLog, onProg) {
     if (direct) {
       const hooks = { log: onLog || function () {}, prog: onProg || function () {} };
-      const u8 = new Uint8Array(payload.bytes);
+      const file = payload.file, o = payload.opts;
       /* låt webbläsaren måla klart innan huvudtråden låses */
-      return new Promise(function (res) { setTimeout(res, 40); }).then(function () {
+      return new Promise(function (res) { setTimeout(res, 40); }).then(async function () {
         if (cmd === 'analyse') {
-          return direct.analyseFile(u8, payload.opts, hooks).then(function (r) { return { report: r.report }; });
+          const r = await direct.readForAnalysis(file, o, hooks.log);
+          const a = await direct.analyseFile(r.bytes, o, hooks);
+          const rep = r.factor === 1 ? a.report : direct.scaleReport(a.report, r.factor, file.size);
+          rep.willStream = direct.useStreaming(file, o);
+          return { report: rep };
         }
-        return direct.optimizeFile(u8, payload.opts, hooks, null).then(function (r) {
-          return { report: r.report, blob: new Blob(r.blocks, { type: 'application/octet-stream' }), ext: r.ext };
-        });
+        if (direct.useStreaming(file, o)) {
+          const r = await direct.streamOptimize(file, o, hooks);
+          return { report: r.report, blob: r.blob, ext: r.ext };
+        }
+        const u8 = new Uint8Array(await file.arrayBuffer());
+        const r = await direct.optimizeFile(u8, o, hooks, null);
+        return { report: r.report, blob: new Blob(r.blocks, { type: 'application/octet-stream' }), ext: r.ext };
       });
     }
     const id = ++reqId;
     const msg = Object.assign({ cmd: cmd, id: id }, payload);
     return new Promise(function (resolve, reject) {
       pending.set(id, { resolve: resolve, reject: reject, onLog: onLog, onProg: onProg });
-      worker.postMessage(msg, payload.bytes ? [payload.bytes] : []);
+      worker.postMessage(msg);
     });
   }
 
@@ -138,7 +148,8 @@
     { k: 'boxify', t: 'Ersätt geometri med lådor', d: 'Varje mesh/BREP byts mot sin omslutande låda. Modellen blir klossar — bara för volymstudier.', risk: true },
     { grp: 'Utdata' },
     { k: 'zip', t: 'Spara som .ifczip', d: 'Zippad IFC. Störst effekt av allt, men alla program läser inte ifczip.' },
-    { k: 'verify', t: 'Kontrollera resultatet', d: 'Läser om den skrivna filen och verifierar att varje referens pekar rätt.' }
+    { k: 'verify', t: 'Kontrollera resultatet', d: 'Läser om den skrivna filen och verifierar att varje referens pekar rätt.' },
+    { k: 'forceStream', t: 'Tvinga snabbläge', d: 'Strömmar filen igenom: bara avrundning och ifczip, men klarar hur stora filer som helst. Används automatiskt över gränsen ovan.' }
   ];
 
   function setPreset(p) {
@@ -244,11 +255,13 @@
         const add = function (k, v) {
           const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; meta.appendChild(s);
         };
+        const ca = f.report.sampled ? '≈' : '';
         add('schema', f.report.schema || '?');
         add('enhet', f.report.unit.label);
-        add('instanser', fmtN(f.report.instances));
-        add('objekt', fmtN(f.report.roots));
+        add('instanser', ca + fmtN(f.report.instances));
+        add('objekt', ca + fmtN(f.report.roots));
         if (f.report.tool) add('från', String(f.report.tool).slice(0, 34));
+        if (f.report.willStream) add('läge', 'snabbläge');
         box.appendChild(meta);
       }
       if (f.err) {
@@ -264,10 +277,12 @@
       list.appendChild(box);
     }
     $('fileSum').textContent = files.length ? files.length + ' filer · ' + fmtB(tot) : '';
-    const big = files.some(function (f) { return f.file.size > 600 * 1048576; });
+    const big = files.some(function (f) { return f.file.size > (opts.streamThresholdMB || 600) * 1048576; });
     $('fileHint').style.display = big ? '' : 'none';
-    $('fileHint').innerHTML = 'En eller flera filer är större än 600 MB. Det kan gå men kräver mycket minne — ' +
-      'stäng andra flikar, och räkna med några minuter per fil.';
+    $('fileHint').innerHTML = 'En eller flera filer är för stora för att hållas i minnet med hela ' +
+      'referensgrafen och körs därför i <b>snabbläge</b>: filen strömmas igenom, flyttalen avrundas och ' +
+      'resultatet kan zippas. Dubbletter, strippning och geometrihantering kräver hela modellen i minnet ' +
+      'och görs inte. Instansnumren rörs inte, så referenserna kan inte gå sönder.';
   }
 
   function renderAnalysis() {
@@ -369,14 +384,19 @@
   async function analyse(f) {
     f.state = 'analyserar'; f.prog = 0; render();
     try {
-      const buf = await f.file.arrayBuffer();
-      const res = await ask('analyse', { bytes: buf, opts: Object.assign({}, opts) },
-        null, function (phase, frac) { f.prog = frac; renderFiles(); });
+      const res = await ask('analyse', { file: f.file, opts: Object.assign({}, opts) },
+        function (t) { logLine('  ' + t, /VARNING/.test(t) ? 'warn' : ''); },
+        function (phase, frac) { f.prog = frac; renderFiles(); });
       f.report = res.report;
       f.state = 'analyserad';
       f.prog = 1;
-      logLine(f.file.name + ': ' + fmtN(f.report.instances) + ' instanser, ' + f.report.schema +
-              ', ' + f.report.unit.label + ' — ' + fmtB(f.report.round.saving) + ' i onödiga decimaler.');
+      const ca = f.report.sampled ? '≈' : '';
+      logLine(f.file.name + ': ' + ca + fmtN(f.report.instances) + ' instanser, ' + f.report.schema +
+              ', ' + f.report.unit.label + ' — ' + ca + fmtB(f.report.round.saving) + ' i onödiga decimaler.');
+      if (f.report.willStream) {
+        logLine('  ' + f.file.name + ' körs i snabbläge (strömmande): avrundning och ifczip, ' +
+                'men inga dubbletter, ingen strippning och ingen geometrihantering.', 'warn');
+      }
     } catch (e) {
       f.state = 'fel'; f.err = e.message; f.prog = 1;
       logLine(f.file.name + ': ' + e.message, 'err');
@@ -397,9 +417,8 @@
       f.state = 'optimerar'; f.prog = 0; render();
       $('phase').textContent = f.file.name;
       try {
-        const buf = await f.file.arrayBuffer();
         const o = Object.assign({}, opts, { name: f.file.name });
-        const res = await ask('optimize', { bytes: buf, opts: o },
+        const res = await ask('optimize', { file: f.file, opts: o },
           function (t) { logLine('  ' + t, /VARNING/.test(t) ? 'warn' : ''); },
           function (phase, frac) {
             f.prog = frac; renderFiles();
@@ -448,8 +467,14 @@
 
     const facts = el('div', 'facts');
     const add = function (k, v) { const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; facts.appendChild(s); };
-    add('instanser', fmtN(r.instancesBefore) + ' → ' + fmtN(r.instancesAfter));
-    add('dubbletter', fmtN(r.merged));
+    if (r.streamed) {
+      add('läge', 'snabbläge (strömmande)');
+      add('instanser', fmtN(r.instancesBefore));
+      add('avrundade tal', fmtN(r.roundedValues || 0));
+    } else {
+      add('instanser', fmtN(r.instancesBefore) + ' → ' + fmtN(r.instancesAfter));
+      add('dubbletter', fmtN(r.merged));
+    }
     if (r.geom && r.geom.facesBefore) add('ytor', fmtN(r.geom.facesBefore) + ' → ' + fmtN(r.geom.facesAfter));
     if (r.geom && r.geom.shellsSkipped) add('skal orörda', fmtN(r.geom.shellsSkipped));
     if (r.weld && r.weld.lists) add('svetsade hörn', fmtN(r.weld.before) + ' → ' + fmtN(r.weld.after));
@@ -459,7 +484,9 @@
 
     const vb = el('div', 'vbadge' + ((r.verify && r.verify.ok && !r.dangling) ? '' : ' bad'));
     vb.textContent = r.dangling ? 'BRUTNA REFERENSER: ' + r.dangling
-      : (r.verify ? (r.verify.ok ? 'kontrollerad — inga brutna referenser' : 'kontroll: ' + r.verify.problems.join('; '))
+      : (r.verify ? (r.verify.ok ? (r.verify.note ? 'oförändrade instansnummer — referenserna kan inte ha brutits'
+                                                 : 'kontrollerad — inga brutna referenser')
+                                : 'kontroll: ' + r.verify.problems.join('; '))
                   : 'kontroll ej körd');
     const vrow = el('div', 'facts');
     vrow.appendChild(vb);

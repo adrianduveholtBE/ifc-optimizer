@@ -18,7 +18,10 @@ function baseOptions() {
     dropConnectivity: false, drop2D: false, dropGrids: false, dropSpaces: false,
     dropSpaceBoundaries: false, dropOpenings: false, dropClasses: [],
     mergeCoplanar: false, weld: false, weldTolMm: 0.5, boxify: false,
-    zip: false, verify: true, suffix: '_optimerad'
+    zip: false, verify: true, suffix: '_optimerad',
+    /* Över den här storleken går filen inte att hålla i minnet med hela
+       referensgrafen — då används snabbläget (strömmande) i stället. */
+    streamThresholdMB: 600, forceStream: false, sampleMB: 96
   };
 }
 

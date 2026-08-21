@@ -22,9 +22,11 @@
 <script src="../src/engine/50-dedup.js"></script>
 <script src="../src/engine/60-geom.js"></script>
 <script src="../src/engine/62-tess.js"></script>
+<script src="../src/engine/64-stream.js"></script>
 <script src="../src/engine/70-write.js"></script>
 <script src="../src/engine/75-analyse.js"></script>
 <script src="../src/engine/80-api.js"></script>
+<script src="../src/engine/90-worker.js"></script>
 <script>
 const out = document.getElementById('out');
 const lines = [];
@@ -46,25 +48,37 @@ const SUITE = [
   ['test/sample_edge.ifc', 'medel', null, 'suite_edge_medel.ifc'],
   ['test/sample_edge.ifc', 'aggressiv', { zip: false }, 'suite_edge_aggr.ifc'],
   ['test/sample_badguid.ifc', 'medel', null, 'suite_badguid.ifc'],
-  ['test/out/sample_2x3_aggr.ifczip', 'medel', { zip: false }, 'suite_fromzip.ifc']
+  ['test/sample_sparse.ifc', 'medel', null, 'suite_sparse.ifc'],
+  ['test/out/sample_2x3_aggr.ifczip', 'medel', { zip: false }, 'suite_fromzip.ifc'],
+  ['test/sample_2x3.ifc', 'medel', { forceStream: true, zip: false }, 'suite_stream.ifc'],
+  ['test/sample_2x3.ifc', 'medel', { forceStream: true, zip: true }, 'suite_stream.ifczip'],
+  ['test/sample_edge.ifc', 'latt', { forceStream: true, zip: false }, 'suite_stream_edge.ifc'],
+  ['test/sample_ifc4_tess.ifc', 'medel', { forceStream: true, zip: false }, 'suite_stream_ifc4.ifc']
 ];
 
 async function runOne(file, preset, extra, outName, quiet) {
   const resp = await fetch('/' + file.replace(/^\//, ''));
   if (!resp.ok) throw new Error('kunde inte hämta ' + file + ' (' + resp.status + ')');
-  const buf = new Uint8Array(await resp.arrayBuffer());
+  const blob = await resp.blob();
   const o = presetOptions(preset);
   if (extra) Object.assign(o, extra);
   o.name = file.split('/').pop();
   const hooks = { log: function (t) { if (!quiet) say('    · ' + t); }, prog: function () {} };
-  const res = await optimizeFile(buf, o, hooks, null);
+  let res, body;
+  if (useStreaming(blob, o)) {
+    res = await streamOptimize(new File([blob], o.name), o, hooks);
+    body = res.blob;
+  } else {
+    res = await optimizeFile(new Uint8Array(await blob.arrayBuffer()), o, hooks, null);
+    body = new Blob(res.blocks);
+  }
   const rep = res.report;
   if (outName) {
-    await fetch('/__out/' + outName, { method: 'POST', body: new Blob(res.blocks) });
+    await fetch('/__out/' + outName, { method: 'POST', body: body });
   }
   return {
     file: file, preset: preset, extra: extra || {}, out: outName,
-    before: rep.sizeBefore, after: rep.sizeAfter,
+    before: rep.sizeBefore, after: rep.sizeAfter, stream: !!rep.streamed,
     saved: +(100 - 100 * rep.sizeAfter / rep.sizeBefore).toFixed(2),
     inst: rep.instancesBefore + '->' + rep.instancesAfter,
     merged: rep.merged, dangling: rep.dangling,
@@ -76,8 +90,33 @@ async function runOne(file, preset, extra, outName, quiet) {
   };
 }
 
+/* stresstest av uppslagstabellen: fler poster än en JS Map klarar */
+function idIndexStress(n) {
+  const t0 = performance.now();
+  const ix = new IdIndex(n);
+  for (let i = 1; i <= n; i++) ix.set(i * 3, i);
+  let fel = 0;
+  for (let i = 1; i <= n; i += 7) if (ix.get(i * 3) !== i) fel++;
+  for (let i = 1; i <= 5000; i++) if (ix.get(i * 3 + 1) !== 0) fel++;
+  return { poster: n, fel: fel, ms: Math.round(performance.now() - t0),
+           minne_MB: +(ix.keys.length * 8 / 1048576).toFixed(1) };
+}
+
 async function main() {
   const q = new URLSearchParams(location.search);
+  if (q.get('idstress')) {
+    const n = parseInt(q.get('idstress'), 10) || 20000000;
+    say('IdIndex-stress med ' + n + ' poster …');
+    say('STRESS:' + JSON.stringify(idIndexStress(n)));
+    try {
+      const mp = new Map();
+      for (let i = 1; i <= n; i++) mp.set(i * 3, i);
+      say('MAP: klarade ' + mp.size + ' poster (ingen gräns nådd)');
+    } catch (e) {
+      say('MAP: kastade "' + e.message + '" — det är precis felet du såg', 'err');
+    }
+    return;
+  }
   if (q.get('suite') === '1') {
     for (const row of SUITE) {
       say('=== ' + row[0] + ' / ' + row[1] + ' ' + JSON.stringify(row[2] || {}));
@@ -101,6 +140,7 @@ async function main() {
 
   const o = presetOptions(preset);
   if (extra) Object.assign(o, JSON.parse(extra));
+  o.name = file.split('/').pop();
   say('inställningar: ' + JSON.stringify(o));
 
   const hooks = {
@@ -122,9 +162,17 @@ async function main() {
     return;
   }
 
-  const res = await optimizeFile(buf, o, hooks, null);
+  let res, body;
+  if (useStreaming({ size: buf.length }, o)) {
+    res = await streamOptimize(new File([buf], o.name || 'in.ifc'), o, hooks);
+    body = res.blob;
+  } else {
+    res = await optimizeFile(buf, o, hooks, null);
+    body = new Blob(res.blocks);
+  }
   const rep = res.report;
   say('RESULT:' + JSON.stringify({
+    streamed: !!rep.streamed,
     schema: rep.analysis.schema,
     unit: rep.analysis.unit.label,
     coordDec: rep.analysis.coordDec,
@@ -140,8 +188,7 @@ async function main() {
   }));
 
   if (post) {
-    const blob = new Blob(res.blocks);
-    const r2 = await fetch('/__out/' + post, { method: 'POST', body: blob });
+    const r2 = await fetch('/__out/' + post, { method: 'POST', body: body });
     say('sparade ' + post + ': ' + (await r2.text()));
   }
 }
