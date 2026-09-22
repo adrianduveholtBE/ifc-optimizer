@@ -187,3 +187,67 @@ async function optimizeFile(bytes, opts, hooks, pre) {
 function nowMs() {
   return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 }
+
+/* --------------------------------------------------------------------------
+   diagnoseBytes — analys + djupanalys + färdiga fynd
+   -------------------------------------------------------------------------- */
+async function diagnoseBytes(bytes, opts, hooks, configText) {
+  const h = hooks || {};
+  const t0 = nowMs();
+  const a = await analyseFile(bytes, opts, {
+    log: h.log, prog: function (s, f) { (h.prog || function () {})(s, f * 0.28); }
+  });
+  const diag = diagnoseModel(a.model, a.roots, opts, h);
+  let cfg = null, cfgError = null;
+  if (configText) {
+    try { cfg = parseExportConfig(configText); }
+    catch (e) { cfgError = e.message; }
+  }
+  const findings = buildFindings(a.report, diag, cfg);
+  return {
+    report: a.report,
+    diag: diag,
+    findings: findings,
+    summary: summariseFindings(findings, a.report.bytes),
+    config: cfg ? { name: cfg.name, known: cfg.known, unknown: cfg.unknown } : null,
+    configError: cfgError,
+    totalMs: Math.round(nowMs() - t0)
+  };
+}
+
+/* Tom djupanalys — används när filen är för stor för referensgrafen. Då
+   kan bara de regler som bygger på inställningarna och på filens grova
+   fördelning säga något, och det ska synas i rapporten. */
+function emptyDiag() {
+  const z = function () { return { bytes: 0, count: 0 }; };
+  return {
+    classes: [], forms: [], idents: [], groups: [], psets: [],
+    products: 0, attributedBytes: 0, tess: null, instancing: null,
+    duplicates: { bytes: 0, count: 0 },
+    counts: {
+      spaces: z(), spaceBoundaries: z(), openings: z(), annotations: z(), grids: z(),
+      layers: z(), materials: z(), styles: z(), types: z(), connects: z(), boundingBox: z()
+    }
+  };
+}
+
+/* Skala om siffror som räknats fram ur ett urval av filen. */
+function scaleDiag(d, factor) {
+  const s = function (v) { return Math.round(v * factor); };
+  for (const c of (d.classes || [])) {
+    c.bytes = s(c.bytes); c.products = s(c.products);
+    c.perProduct = c.products ? c.bytes / c.products : c.bytes;
+    for (const k in c.forms) c.forms[k] = s(c.forms[k]);
+  }
+  for (const f of (d.forms || [])) { f.bytes = s(f.bytes); f.reps = s(f.reps); }
+  for (const i of (d.idents || [])) { i.bytes = s(i.bytes); i.reps = s(i.reps); }
+  for (const g of (d.groups || [])) { g.bytes = s(g.bytes); g.count = s(g.count); g.products = s(g.products); }
+  for (const p of (d.psets || [])) { p.bytes = s(p.bytes); p.count = s(p.count); p.props = s(p.props); }
+  for (const k in (d.counts || {})) { d.counts[k].bytes = s(d.counts[k].bytes); d.counts[k].count = s(d.counts[k].count); }
+  if (d.duplicates) { d.duplicates.bytes = s(d.duplicates.bytes); d.duplicates.count = s(d.duplicates.count); }
+  if (d.tess) { d.tess.points = s(d.tess.points); d.tess.bytes = s(d.tess.bytes); d.tess.sets = s(d.tess.sets); }
+  d.products = s(d.products);
+  d.attributedBytes = s(d.attributedBytes);
+  d.sampled = true;
+  return d;
+}

@@ -5,6 +5,13 @@ webbläsaren — **ingen modell laddas upp någonstans**, vilket är hela poäng
 jämfört med webbtjänster som bimcamel.com. Filen du hämtar är ett enda
 fristående HTML-dokument utan beroenden.
 
+Repot innehåller två verktyg som delar samma motor:
+
+| | |
+|---|---|
+| **[IFC Optimizer](https://adrianduveholtbe.github.io/ifc-optimizer/)** | krymper filen du redan har |
+| **[IFC Diagnos](https://adrianduveholtbe.github.io/ifc-optimizer/diagnos/)** | talar om *varför* den är stor och vad du ändrar i Revits exportinställningar |
+
 ## Kör den
 
 **→ [adrianduveholtbe.github.io/ifc-optimizer](https://adrianduveholtbe.github.io/ifc-optimizer/)**
@@ -88,6 +95,38 @@ och varje kvarvarande skal har samma form som före — största formavvikelse
 0,016 % och den kommer enbart från koordinatavrundningen på de minsta
 detaljerna.
 
+## IFC Diagnos
+
+Optimizern åtgärdar symtomet i efterhand. Diagnosen letar upp orsaken i
+exporten, så att nästa fil blir mindre från början.
+
+Den bokför varje geometriinstans på **den byggdel och den representationsform
+som äger den** — delad geometri räknas en gång, så summan överstiger aldrig
+filen. Ur det faller tabellen som brukar avslöja allt: *byte per objekt* per
+klass. På teststommodellen väger en `IfcColumn` 232 kB och en `IfcBeam` 104 kB,
+medan en `IfcMember` väger 737 B. 885 pelare och balkar bär alltså 140 MB av
+166, för att de exporterats som BREP i stället för svepta solider.
+
+Dessutom grupperas egenskapsuppsättningarna på namn med sin verkliga kostnad
+(`Pset_MemberCommon` 1,8 MB, `Pset_QuantityTakeOff` 753 kB …), och varje fynd
+kopplas till den kryssruta i Revits IFC-export som styr det.
+
+**Ladda upp exportuppsättningen** (Revit → Export → IFC → *Modify setup* →
+spara) så läses dina 46 inställningar in och jämförs med vad som faktiskt
+ligger i filen. Då står det inte bara "egenskaper kostar 2,9 MB" utan
+"*Export IFC common property sets* står på PÅ och kostar 2,9 MB".
+
+Rapporten skiljer på tre sorters vinst — förlustfritt, sällan använd metadata,
+och sådant som kräver ett beslut — plus en fjärde post för geometri som ingen
+kryssruta rår på utan som måste göras om i modellen. Posterna överlappar
+annars varandra och en enkel summa blir större än filen.
+
+Diagnosen kräver hela referensgrafen och därmed hela filen i minnet. Över
+gränsen (samma 600 MB som optimeraren) körs en förenklad diagnos: bara
+inställningarna och filens grova fördelning granskas. Ett urval av de första
+megabyten duger inte till mer — en IFC är inte homogen, geometrin ligger först
+och egenskaperna sist.
+
 ## Struktur
 
 ```
@@ -103,9 +142,13 @@ src/engine/    motorn, en fil per steg, konkateneras i namnordning
   62-tess      svetsning av punktlistor, omslutande lådor
   70-write     omnumrering, utskrift, omläsningskontroll
   75-analyse   storleksrapport
+  76-advise    djupanalys: vems byten, vilken form, vad varje Pset kostar
+  78-rules     fynd -> orsak -> åtgärd, kopplat till Revits kryssrutor
   80-api       körschema
   90-worker    meddelanden i webbarbetaren
-src/ui/        index.html, app.css, app.js, logo.txt
+  06-revit     Revits 46 exportinställningar (delas med gränssnittet)
+src/ui/        IFC Optimizer: index.html, app.css, app.js, logo.txt
+src/diag/      IFC Diagnos: index.html, app.js, extra.css
 tools/         make_sample.py, make_edge.py, verify.py, area_check.py, devserver.py
 test/          genererade testfiler + harness.html
 ```

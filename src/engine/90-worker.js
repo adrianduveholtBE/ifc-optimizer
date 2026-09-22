@@ -43,6 +43,41 @@ async function readForAnalysis(file, o, log) {
   return { bytes: slice, factor: file.size / limit };
 }
 
+/* --------------------------------------------------------------------------
+   Diagnosen behöver hela referensgrafen och därmed hela filen i minnet. Ett
+   urval av de första megabyten duger inte: en IFC är inte homogen — geometrin
+   ligger först och egenskaperna sist, så ett urval hade missat halva bilden.
+   Över gränsen kör vi därför en förenklad diagnos i stället för en felaktig.
+   -------------------------------------------------------------------------- */
+async function runDiagnosis(file, opts, configText, hooks) {
+  const log = (hooks && hooks.log) || function () {};
+  const limit = ((opts && opts.streamThresholdMB) || 600) * 1048576;
+
+  if (file.size <= limit) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return await diagnoseBytes(bytes, opts, hooks, configText);
+  }
+
+  log('Filen är ' + fmtBytes(file.size) + ' — för stor för att hela referensgrafen ska ' +
+      'rymmas. Kör en förenklad diagnos: exportinställningarna granskas, men ' +
+      'egenskaper, geometriformer och byggdelsklasser går inte att räkna fram.');
+  const sample = new Uint8Array(await file.slice(0, ((opts && opts.sampleMB) || 96) * 1048576).arrayBuffer());
+  const a = await analyseFile(sample, opts, hooks);
+  const rep = scaleReport(a.report, file.size / sample.length, file.size);
+  let cfg = null, cfgError = null;
+  if (configText) {
+    try { cfg = parseExportConfig(configText); } catch (e) { cfgError = e.message; }
+  }
+  const diag = emptyDiag();
+  const findings = buildFindings(rep, diag, cfg);
+  return {
+    report: rep, diag: diag, findings: findings,
+    summary: summariseFindings(findings, rep.bytes),
+    config: cfg ? { name: cfg.name, known: cfg.known, unknown: cfg.unknown } : null,
+    configError: cfgError, degraded: true, sampled: true, totalMs: 0
+  };
+}
+
 if (typeof document === 'undefined') {
 self.onmessage = async function (ev) {
   const msg = ev.data || {};
@@ -76,6 +111,8 @@ self.onmessage = async function (ev) {
           ext: r.ext
         });
       }
+    } else if (msg.cmd === 'diagnose') {
+      post('diagnosed', { result: await runDiagnosis(msg.file, msg.opts, msg.configText, hooks) });
     } else if (msg.cmd === 'ping') {
       post('pong', { version: '1.1' });
     }

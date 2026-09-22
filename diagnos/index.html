@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFC Optimizer — BIM Engine</title>
+<title>IFC Diagnos — BIM Engine</title>
 <!-- byggd 2026-09-22 15:16 ur C:\Dev\jobb\IFC Optimizer -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap');
@@ -202,6 +202,59 @@ footer { margin-top: 40px; text-align: center; font-family: var(--mono); font-si
 details.more summary { cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--mint); margin-top: 12px; }
 details.more[open] summary { margin-bottom: 8px; }
 
+/* ==== tillägg för diagnossidan ==== */
+
+.sumgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+@media (max-width: 720px) { .sumgrid { grid-template-columns: 1fr; } }
+.sumbox { border: 1px solid var(--line); background: var(--panel-2); padding: 14px; }
+.sumbox .v { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--mint); }
+.sumbox .v.warn { color: var(--warn); }
+.sumbox .v.bad { color: var(--danger); }
+.sumbox .k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--text-dim); margin-bottom: 6px; }
+.sumbox .d { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; margin-top: 6px; }
+
+.finding { border: 1px solid var(--line); background: var(--panel-2); padding: 16px; margin-top: 12px; }
+.finding.top { border-left: 3px solid var(--mint); }
+.finding h3 { font-size: 15px; font-weight: 700; margin-bottom: 2px; letter-spacing: -0.01em; }
+.finding .weight { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 2px 0 10px; }
+.finding .mb { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--mint); }
+.finding .pc { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.finding .track { height: 6px; background: var(--panel); border: 1px solid var(--line); margin: 8px 0 12px; }
+.finding .track i { display: block; height: 100%; background: var(--mint); }
+.finding dl { display: grid; grid-template-columns: 74px 1fr; gap: 6px 12px; font-size: 13px; line-height: 1.6; }
+.finding dt { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); padding-top: 3px; }
+.finding dd { color: var(--text); }
+.finding .setting {
+  margin-top: 12px; border: 1px solid var(--line); background: var(--panel);
+  padding: 9px 11px; font-size: 12px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+}
+.finding .setting .tab { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--mint); }
+.finding .setting .lbl { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.finding .setting .now { font-family: var(--mono); font-size: 11px; }
+.finding .setting .now.on { color: var(--warn); }
+.finding .setting .now.off { color: var(--text-dim); }
+.finding .setting .now.ok { color: var(--mint); }
+.tagrow { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.tag2 { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; border: 1px solid var(--line); padding: 3px 7px; color: var(--text-dim); }
+.tag2.ok { border-color: var(--mint); color: var(--mint); }
+.tag2.meta { border-color: var(--warn); color: var(--warn); }
+.tag2.loss { border-color: var(--danger); color: var(--danger); }
+.tag2.done { background: var(--mint-dim); border-color: var(--mint); color: var(--mint); }
+
+.cfgtab { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mint); margin: 16px 0 6px; }
+.cfgrow { display: grid; grid-template-columns: 1fr 120px; gap: 10px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(42,47,48,.6); }
+.cfgrow .val { font-family: var(--mono); font-size: 11px; text-align: right; }
+.cfgrow .val.on { color: var(--warn); }
+.cfgrow .val.off { color: var(--text-dim); }
+.cfgrow .val.neutral { color: var(--text); }
+.cfgrow.flag { background: rgba(214,176,106,.07); }
+
+.dropsmall { padding: 18px 16px; }
+.dropsmall .ic { font-size: 18px; margin-bottom: 4px; }
+.bar2 { height: 5px; background: var(--panel); border: 1px solid var(--line); }
+.bar2 i { display: block; height: 100%; background: var(--mint); }
+td.wbar { width: 90px; }
+
 </style>
 </head>
 <body>
@@ -210,8 +263,8 @@ details.more[open] summary { margin-bottom: 8px; }
     <div class="logo">
       <img class="logo-mark" src="data:image/png;base64,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" alt="BIM Engine">
       <div>
-        <h1>IFC Optimizer</h1>
-        <div class="sub">BIM Engine · krymper IFC utan att tappa modellen</div>
+        <h1>IFC Diagnos</h1>
+        <div class="sub">BIM Engine · varför väger filen så mycket — och vad du ändrar</div>
       </div>
     </div>
     <div class="tag" id="engineState">motor · startar</div>
@@ -219,84 +272,73 @@ details.more[open] summary { margin-bottom: 8px; }
 
   <div class="grid">
     <div>
-      <!-- 1 · FILER -->
       <div class="card">
         <h2>1 · Filer <span class="right" id="fileSum"></span></h2>
         <div class="drop" id="drop">
           <div class="ic">⬇</div>
-          <p><strong>Dra in IFC-filer här</strong> eller klicka för att välja<br>
-          <span class="muted">.ifc och .ifczip · flera samtidigt · inget lämnar datorn</span></p>
+          <p><strong>Dra in IFC-filen här</strong> eller klicka för att välja<br>
+          <span class="muted">.ifc och .ifczip · inget lämnar datorn</span></p>
         </div>
-        <input type="file" id="fileInput" multiple accept=".ifc,.ifczip,.ifcZIP,.IFC" style="display:none">
+        <input type="file" id="fileInput" multiple accept=".ifc,.ifczip,.IFC" style="display:none">
         <div class="filelist" id="fileList"></div>
-        <div class="hint" id="fileHint" style="display:none"></div>
-      </div>
 
-      <!-- 2 · ANALYS -->
-      <div class="card" id="analysisCard" style="display:none">
-        <h2>2 · Var ligger byten? <span class="right" id="analysisFor"></span></h2>
-        <div class="cats" id="cats"></div>
-        <details class="more" id="typeMore">
-          <summary>Visa de tyngsta IFC-klasserna</summary>
-          <table class="tbl" id="typeTbl"></table>
-        </details>
-        <details class="more" id="elemMore">
-          <summary>Välj byggdelsklasser att ta bort helt</summary>
-          <div class="hint">Kryssa klasser som inte behövs i den här leveransen — t.ex. armering eller inredning. Objekten och deras geometri tas bort ur filen.</div>
-          <table class="tbl" id="elemTbl"></table>
-        </details>
-      </div>
-    </div>
-
-    <div>
-      <!-- 3 · NIVÅ -->
-      <div class="card">
-        <h2>3 · Nivå</h2>
-        <div class="seg" id="presetSeg">
-          <button data-p="latt">Lätt</button>
-          <button data-p="medel" class="on">Medel</button>
-          <button data-p="aggressiv">Aggressiv</button>
+        <h2 style="margin-top:22px">Exportinställningar <span class="right">valfritt</span></h2>
+        <div class="drop dropsmall" id="dropCfg">
+          <div class="ic">⚙</div>
+          <p><strong>Dra in din IFC-uppsättning (.json)</strong><br>
+          <span class="muted">Revit → Export → IFC → Modify setup → spara uppsättningen</span></p>
         </div>
-        <div class="levelnote" id="levelNote"></div>
+        <input type="file" id="cfgInput" accept=".json,.txt" style="display:none">
+        <div class="filelist" id="cfgList"></div>
+        <div class="hint">Med inställningsfilen kan diagnosen peka ut exakt vilken kryssruta som
+          orsakar vad — och upptäcka motsägelser, som att en inställning är av fast datat ändå ligger i filen.</div>
 
-        <div class="field">
-          <label>Koordinatprecision</label>
-          <div class="seg sm" id="tolSeg">
-            <button data-t="0.1">0,1 mm</button>
-            <button data-t="0.01" class="on">0,01 mm</button>
-            <button data-t="0.001">0,001 mm</button>
-            <button data-t="0">av</button>
-          </div>
-          <div class="hint" id="tolNote"></div>
-        </div>
-
-        <details class="more" id="advMore">
-          <summary>Alla inställningar</summary>
-          <div class="opts" id="opts"></div>
-        </details>
-
-        <button class="btn" id="runBtn" disabled>Optimera</button>
+        <button class="btn" id="runBtn" disabled>Analysera</button>
         <div class="progress"><div class="bar" id="bar"></div></div>
         <div class="phase" id="phase"></div>
         <div class="log" id="log"></div>
       </div>
+    </div>
 
-      <!-- 4 · RESULTAT -->
-      <div class="card" id="resultCard" style="display:none">
-        <h2>4 · Resultat <span class="right" id="resSum"></span></h2>
-        <div id="results"></div>
+    <div>
+      <div class="card" id="sumCard" style="display:none">
+        <h2>2 · Sammanfattning <span class="right" id="sumFor"></span></h2>
+        <div class="meta" id="modelMeta" style="font-family:var(--mono);font-size:11px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:14px"></div>
+        <div class="sumgrid" id="sumGrid"></div>
+        <div class="warnbox" id="zipBox" style="display:none"></div>
         <div class="btnrow">
-          <button class="btn ghost sm" id="dlAll">Ladda ner alla</button>
           <button class="btn ghost sm" id="copyRep">Kopiera rapport</button>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="card" id="findCard" style="display:none">
+    <h2>3 · Vad som väger — och vad du gör åt det</h2>
+    <div id="findings"></div>
+  </div>
+
+  <div class="card" id="tblCard" style="display:none">
+    <h2>4 · Tyngsta byggdelsklasserna</h2>
+    <div class="hint">Kolumnen <b>byte per objekt</b> är den som avslöjar syndarna: en klass med få objekt
+      men hög vikt per objekt har geometri som borde ses över.</div>
+    <table class="tbl" id="classTbl"></table>
+
+    <h2 style="margin-top:26px">Egenskapsuppsättningar</h2>
+    <table class="tbl" id="psetTbl"></table>
+
+    <h2 style="margin-top:26px">Geometriformer</h2>
+    <table class="tbl" id="formTbl"></table>
+  </div>
+
+  <div class="card" id="cfgCard" style="display:none">
+    <h2>5 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
+    <div id="cfgBody"></div>
+  </div>
+
   <footer>
-    IFC Optimizer 1.0 · BIM Engine AB · allt arbete sker lokalt i webbläsaren<br>
-    vill du veta <em>varför</em> filen är stor — kör <a href="diagnos/" style="color:var(--mint)">IFC Diagnos</a><br>
-    frågor om verktyget — kontakta Adrian
+    IFC Diagnos 1.0 · BIM Engine AB · allt arbete sker lokalt i webbläsaren<br>
+    behöver du krympa filen direkt — använd <a href="../" style="color:var(--mint)">IFC Optimizer</a>
   </footer>
 </div>
 
@@ -4758,7 +4800,7 @@ function parseExportConfig(text) {
 </script>
 <script>
 /* ==========================================================================
-   app.js  ·  gränssnittet
+   diag/app.js  ·  gränssnittet för diagnosen
    ========================================================================== */
 (function () {
   'use strict';
@@ -4772,17 +4814,15 @@ function parseExportConfig(text) {
   };
   const fmtB = function (n) {
     if (n === null || n === undefined) return '–';
-    if (n < 1024) return n + ' B';
+    if (n < 1024) return Math.round(n) + ' B';
     if (n < 1048576) return (n / 1024).toFixed(1).replace('.', ',') + ' kB';
     if (n < 1073741824) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
     return (n / 1073741824).toFixed(2).replace('.', ',') + ' GB';
   };
-  const fmtN = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); };
+  const fmtN = function (n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); };
+  const pct = function (x) { return (x * 100).toFixed(1).replace('.', ',') + ' %'; };
 
-  /* --- motorn: webbarbetare om det går, annars huvudtråden -----------------
-     Öppnad direkt från disk (file://) vägrar en del webbläsare skapa en
-     arbetare ur en Blob-URL. Vi gör därför ett ping-test och faller tillbaka
-     på att köra motorn i huvudtråden i stället för att stå handfallna.     */
+  /* --- motorn -------------------------------------------------------------- */
   let worker = null, reqId = 0, direct = null;
   const pending = new Map();
 
@@ -4801,28 +4841,23 @@ function parseExportConfig(text) {
         if (d.type === 'log') { job.onLog && job.onLog(d.text); return; }
         if (d.type === 'progress') { job.onProg && job.onProg(d.phase, d.frac); return; }
         pending.delete(d.id);
-        if (d.type === 'error') job.reject(new Error(d.message + (d.stack ? '\n' + d.stack : '')));
+        if (d.type === 'error') job.reject(new Error(d.message));
         else job.resolve(d);
       };
       worker.onerror = function () { if (!ok) useDirect(src); };
       worker.postMessage({ cmd: 'ping', id: 0 });
       setTimeout(function () { if (!ok) useDirect(src); }, 4000);
-      $('engineState').textContent = 'motor · startar';
-    } catch (e) {
-      useDirect(src);
-    }
+    } catch (e) { useDirect(src); }
   }
 
   function useDirect(src) {
     if (direct) return;
     try {
       worker = null;
-      direct = new Function(src + '\nreturn { analyseFile: analyseFile, optimizeFile: optimizeFile,' +
-        ' streamOptimize: streamOptimize, readForAnalysis: readForAnalysis,' +
-        ' scaleReport: scaleReport, useStreaming: useStreaming };')();
+      direct = new Function(src + '\nreturn { runDiagnosis: runDiagnosis };')();
       $('engineState').textContent = 'motor · redo (förgrund)';
-      logLine('Webbläsaren tillåter ingen bakgrundstråd här — motorn körs i förgrunden. ' +
-              'Gränssnittet står stilla medan en stor fil arbetas igenom.', 'warn');
+      logLine('Webbläsaren tillåter ingen bakgrundstråd här — analysen körs i förgrunden ' +
+              'och fönstret står stilla en stund.', 'warn');
     } catch (e) {
       $('engineState').textContent = 'motor · fel';
       $('engineState').className = 'tag bad';
@@ -4830,199 +4865,85 @@ function parseExportConfig(text) {
     }
   }
 
-  function ask(cmd, payload, onLog, onProg) {
+  function ask(payload, onLog, onProg) {
     if (direct) {
       const hooks = { log: onLog || function () {}, prog: onProg || function () {} };
-      const file = payload.file, o = payload.opts;
-      /* låt webbläsaren måla klart innan huvudtråden låses */
-      return new Promise(function (res) { setTimeout(res, 40); }).then(async function () {
-        if (cmd === 'analyse') {
-          const r = await direct.readForAnalysis(file, o, hooks.log);
-          const a = await direct.analyseFile(r.bytes, o, hooks);
-          const rep = r.factor === 1 ? a.report : direct.scaleReport(a.report, r.factor, file.size);
-          rep.willStream = direct.useStreaming(file, o);
-          return { report: rep };
-        }
-        if (direct.useStreaming(file, o)) {
-          const r = await direct.streamOptimize(file, o, hooks);
-          return { report: r.report, blob: r.blob, ext: r.ext };
-        }
-        const u8 = new Uint8Array(await file.arrayBuffer());
-        const r = await direct.optimizeFile(u8, o, hooks, null);
-        return { report: r.report, blob: new Blob(r.blocks, { type: 'application/octet-stream' }), ext: r.ext };
+      return new Promise(function (r) { setTimeout(r, 40); }).then(async function () {
+        return { result: await direct.runDiagnosis(payload.file, payload.opts, payload.configText, hooks) };
       });
     }
     const id = ++reqId;
-    const msg = Object.assign({ cmd: cmd, id: id }, payload);
     return new Promise(function (resolve, reject) {
       pending.set(id, { resolve: resolve, reject: reject, onLog: onLog, onProg: onProg });
-      worker.postMessage(msg);
+      worker.postMessage(Object.assign({ cmd: 'diagnose', id: id }, payload));
     });
   }
 
   /* --- tillstånd ---------------------------------------------------------- */
-  const files = [];            // { file, id, state, report, result, node }
-  let preset = 'medel';
-  let opts = null;
-  let custom = false;
+  const files = [];
+  let active = null;
+  let cfgFile = null, cfgText = null;
   let busy = false;
-  let queue = Promise.resolve();
 
-  const LEVELS = {
-    latt: 'Rör inte informationen. Avrundar bara flyttal, slår ihop identiska ' +
-          'objekt, städar bort föräldralöst skräp och numrerar om. Modellen är ' +
-          'exakt densamma efteråt.',
-    medel: 'För samordning och granskning. Tar bort egenskaper, mängder, typobjekt, ' +
-           'material, 2D-linjer och lager. Geometrin är kvar helt oförändrad — ' +
-           'koplanära ytor slås ihop förlustfritt. Färger behålls.',
-    aggressiv: 'Minsta möjliga fil. Tar dessutom bort färger, rum, öppningar och ' +
-               'rutnät, svetsar ihop hörn och sparar som .ifczip.'
-  };
+  function logLine(text, cls) {
+    const box = $('log');
+    const t = new Date();
+    const ts = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + ':' + ('0' + t.getSeconds()).slice(-2);
+    const line = el('div');
+    line.appendChild(el('span', 'ts', ts + '  '));
+    line.appendChild(el('span', cls || '', text));
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
 
-  /* option-specifikationen driver både kryssrutorna och besparingssiffrorna */
-  const SPEC = [
-    { grp: 'Säkert — ingen information försvinner' },
-    { k: 'roundCoords', t: 'Avrunda flyttal', d: 'Revit skriver ofta 15 decimaler i millimetermodeller. Detta är den enskilt största lättvinsten.', est: 'rounding' },
-    { k: 'dedup', t: 'Slå ihop identiska objekt', d: 'Punkter, riktningar, profiler, placeringar och hela geometrigrenar som är exakt lika blir en enda instans.' },
-    { k: 'gc', t: 'Städa bort föräldralöst', d: 'Objekt som ingenting pekar på — vanligt skräp från exporten.' },
-    { k: 'renumber', t: 'Numrera om instanser', d: 'Ger korta instansnummer i den nya filen.' },
-    { k: 'unifyOwnerHistory', t: 'En gemensam ägarhistorik', d: 'Alla objekt pekar på samma IfcOwnerHistory.' },
-    { grp: 'Information som ofta inte behövs i en samordningsmodell' },
-    { k: 'dropPsets', t: 'Egenskaper (Pset)', d: 'All parameterinformation. Behåll om modellen ska mängdas eller kravgranskas.', est: 'psets' },
-    { k: 'dropQuantities', t: 'Mängder (BaseQuantities)', est: 'quantities' },
-    { k: 'dropTypes', t: 'Typobjekt', d: 'IfcWallType m.fl. samt kopplingen objekt–typ.', est: 'typeObjects' },
-    { k: 'dropMaterials', t: 'Material', d: 'Materiallager och materialkopplingar. Färg som kommer från material kan försvinna.', est: 'materials' },
-    { k: 'dropStyles', t: 'Färger och stilar', d: 'Modellen blir grå i visaren.', est: 'styles', risk: true },
-    { k: 'dropLayers', t: 'Presentationslager', d: 'IfcPresentationLayerAssignment (CAD-lagernamn).' },
-    { k: 'dropClassifications', t: 'Klassificering och dokument', d: 'CoClass/BSAB-referenser, dokumentlänkar.' },
-    { k: 'dropConnectivity', t: 'Anslutningsrelationer', d: 'IfcRelConnects* — vem som möter vem. Används sällan nedströms.' },
-    { k: 'drop2D', t: '2D och annotation', d: 'Axel-, footprint- och annotationsrepresentationer samt IfcAnnotation.', est: 'drawing' },
-    { k: 'dropGrids', t: 'Rutnät', d: 'IfcGrid med axlar.' },
-    { k: 'dropSpaces', t: 'Rum och zoner', d: 'Innehållet i rummen flyttas upp till våningsplanet så inget tappas.', est: 'spaces', risk: true },
-    { k: 'dropSpaceBoundaries', t: 'Rumsavgränsningar', d: 'IfcRelSpaceBoundary — kan vara mycket stort i arkitektmodeller.' },
-    { k: 'dropOpenings', t: 'Öppningar', d: 'IfcOpeningElement. Varning: visare som själva klipper hål i väggen slutar göra det.', est: 'openings', risk: true },
-    { grp: 'Geometri' },
-    { k: 'mergeCoplanar', t: 'Slå ihop koplanära ytor', d: 'Trianglar i samma plan blir en yta. Förlustfritt — varje skal areakontrolleras och lämnas orört om något inte stämmer.' },
-    { k: 'weld', t: 'Svetsa ihop hörn (IFC4-mesh)', d: 'Kvantiserar punktlistor och tar bort urartade trianglar.' },
-    { k: 'boxify', t: 'Ersätt geometri med lådor', d: 'Varje mesh/BREP byts mot sin omslutande låda. Modellen blir klossar — bara för volymstudier.', risk: true },
-    { grp: 'Utdata' },
-    { k: 'zip', t: 'Spara som .ifczip', d: 'Zippad IFC. Störst effekt av allt, men alla program läser inte ifczip.' },
-    { k: 'verify', t: 'Kontrollera resultatet', d: 'Läser om den skrivna filen och verifierar att varje referens pekar rätt.' },
-    { k: 'forceStream', t: 'Tvinga snabbläge', d: 'Strömmar filen igenom: bara avrundning och ifczip, men klarar hur stora filer som helst. Används automatiskt över gränsen ovan.' }
-  ];
-
-  function setPreset(p) {
-    preset = p;
-    const tol = opts ? opts.tolMm : 0.01;
-    const rc = opts ? opts.roundCoords : true;
-    const dc = opts ? opts.dropClasses : [];
-    opts = presetOptions(p);
-    opts.tolMm = tol; opts.roundCoords = rc; opts.dropClasses = dc;
-    custom = false;
+  /* --- filhantering ------------------------------------------------------- */
+  function addFiles(fl) {
+    for (const file of fl) {
+      const low = file.name.toLowerCase();
+      if (!(low.endsWith('.ifc') || low.endsWith('.ifczip'))) continue;
+      files.push({ file: file, result: null, err: null, state: 'väntar' });
+    }
+    if (!active && files.length) active = files[0];
     render();
   }
 
-  function estFor(key) {
-    let sum = 0, any = false;
-    for (const f of files) {
-      if (!f.report || !f.report.est) continue;
-      const v = f.report.est[key];
-      if (typeof v === 'number') { sum += v; any = true; }
+  async function setConfig(file) {
+    cfgFile = file;
+    try {
+      cfgText = await file.text();
+      const probe = JSON.parse(cfgText.replace(/^﻿/, ''));
+      const n = Array.isArray(probe) ? (probe[0] && probe[0].Name) : probe.Name;
+      logLine('Läste inställningar' + (n ? ': ' + n : '') + '.', 'ok');
+    } catch (e) {
+      cfgText = null;
+      logLine('Kunde inte läsa inställningsfilen: ' + e.message, 'err');
     }
-    return any ? sum : null;
+    render();
   }
 
-  /* --- rendering ---------------------------------------------------------- */
   function render() {
-    renderPresets();
-    renderOpts();
-    renderFiles();
-    renderAnalysis();
-    $('runBtn').disabled = busy || files.length === 0;
-    $('runBtn').textContent = busy ? 'Arbetar…' : (files.length > 1 ? 'Optimera ' + files.length + ' filer' : 'Optimera');
-  }
-
-  function renderPresets() {
-    const btns = $('presetSeg').querySelectorAll('button');
-    for (const b of btns) b.classList.toggle('on', !custom && b.dataset.p === preset);
-    $('levelNote').innerHTML = custom
-      ? '<b>Anpassad</b> — du har ändrat inställningarna själv.'
-      : '<b>' + $('presetSeg').querySelector('[data-p="' + preset + '"]').textContent + '</b> — ' + LEVELS[preset];
-    const tb = $('tolSeg').querySelectorAll('button');
-    for (const b of tb) {
-      const t = parseFloat(b.dataset.t);
-      b.classList.toggle('on', (t === 0 && !opts.roundCoords) || (opts.roundCoords && Math.abs(t - opts.tolMm) < 1e-9));
-    }
-    let dec = null;
-    for (const f of files) if (f.report) { dec = f.report.coordDec; break; }
-    $('tolNote').textContent = !opts.roundCoords
-      ? 'Flyttalen skrivs precis som de kom in.'
-      : 'Koordinater avrundas till ' + String(opts.tolMm).replace('.', ',') + ' mm' +
-        (dec !== null ? ' (' + dec + ' decimaler i modellens enhet)' : '') +
-        '. Det är 100–10 000 gånger finare än byggtoleransen.';
-  }
-
-  function renderOpts() {
-    const box = $('opts');
-    box.innerHTML = '';
-    for (const s of SPEC) {
-      if (s.grp) { box.appendChild(el('div', 'grp', s.grp)); continue; }
-      const row = el('div', 'opt' + (s.risk ? ' risk' : ''));
-      const cb = el('input');
-      cb.type = 'checkbox'; cb.checked = !!opts[s.k];
-      cb.addEventListener('change', function () {
-        opts[s.k] = cb.checked;
-        if (s.k === 'roundCoords') { renderPresets(); }
-        custom = true;
-        render();
-      });
-      const txt = el('div', 'txt');
-      txt.appendChild(el('span', null, s.t));
-      if (s.d) txt.appendChild(el('small', null, s.d));
-      row.appendChild(cb); row.appendChild(txt);
-      if (s.est) {
-        const v = estFor(s.est);
-        if (v) row.appendChild(el('div', 'est', '≈ ' + fmtB(v)));
-      }
-      box.appendChild(row);
-    }
-  }
-
-  function renderFiles() {
     const list = $('fileList');
     list.innerHTML = '';
     let tot = 0;
     for (const f of files) {
       tot += f.file.size;
       const box = el('div', 'file');
+      if (f === active) box.style.borderColor = 'var(--mint)';
       const r1 = el('div', 'row1');
-      r1.appendChild(el('div', 'nm', f.file.name));
+      const nm = el('div', 'nm', f.file.name);
+      nm.style.cursor = 'pointer';
+      nm.addEventListener('click', function () { active = f; render(); showReport(); });
+      r1.appendChild(nm);
       r1.appendChild(el('div', 'sz', fmtB(f.file.size)));
-      const st = el('div', 'state ' + (f.state === 'klar' ? 'ok' : (f.state === 'fel' ? 'err' : '')), f.state);
-      r1.appendChild(st);
+      r1.appendChild(el('div', 'state ' + (f.result ? 'ok' : (f.err ? 'err' : '')), f.err ? 'fel' : f.state));
       const x = el('button', 'x', '×');
-      x.title = 'ta bort';
       x.addEventListener('click', function () {
-        const i = files.indexOf(f);
-        if (i >= 0) files.splice(i, 1);
-        render();
+        const i = files.indexOf(f); if (i >= 0) files.splice(i, 1);
+        if (active === f) active = files[0] || null;
+        render(); showReport();
       });
       r1.appendChild(x);
       box.appendChild(r1);
-      if (f.report) {
-        const meta = el('div', 'meta');
-        const add = function (k, v) {
-          const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; meta.appendChild(s);
-        };
-        const ca = f.report.sampled ? '≈' : '';
-        add('schema', f.report.schema || '?');
-        add('enhet', f.report.unit.label);
-        add('instanser', ca + fmtN(f.report.instances));
-        add('objekt', ca + fmtN(f.report.roots));
-        if (f.report.tool) add('från', String(f.report.tool).slice(0, 34));
-        if (f.report.willStream) add('läge', 'snabbläge');
-        box.appendChild(meta);
-      }
       if (f.err) {
         const e = el('div', 'meta');
         e.innerHTML = '<span style="color:var(--danger)">' + f.err + '</span>';
@@ -5030,343 +4951,331 @@ function parseExportConfig(text) {
       }
       if (f.prog !== undefined && f.prog < 1) {
         const bar = el('div', 'bar'); const i = el('i');
-        i.style.width = Math.round(f.prog * 100) + '%';
-        bar.appendChild(i); box.appendChild(bar);
+        i.style.width = Math.round(f.prog * 100) + '%'; bar.appendChild(i); box.appendChild(bar);
       }
       list.appendChild(box);
     }
     $('fileSum').textContent = files.length ? files.length + ' filer · ' + fmtB(tot) : '';
-    const big = files.some(function (f) { return f.file.size > (opts.streamThresholdMB || 600) * 1048576; });
-    $('fileHint').style.display = big ? '' : 'none';
-    $('fileHint').innerHTML = 'En eller flera filer är för stora för att hållas i minnet med hela ' +
-      'referensgrafen och körs därför i <b>snabbläge</b>: filen strömmas igenom, flyttalen avrundas och ' +
-      'resultatet kan zippas. Dubbletter, strippning och geometrihantering kräver hela modellen i minnet ' +
-      'och görs inte. Instansnumren rörs inte, så referenserna kan inte gå sönder.';
-  }
 
-  function renderAnalysis() {
-    const rep = files.find(function (f) { return f.report; });
-    if (!rep) { $('analysisCard').style.display = 'none'; return; }
-    const r = rep.report;
-    $('analysisCard').style.display = '';
-    $('analysisFor').textContent = rep.file.name;
-
-    const cats = $('cats');
-    cats.innerHTML = '';
-    const max = r.cats.length ? r.cats[0].bytes : 1;
-    for (const c of r.cats.slice(0, 11)) {
-      const row = el('div', 'catrow');
-      row.appendChild(el('div', 'lbl', c.label));
-      const tr = el('div', 'track');
-      const i = el('i');
-      i.style.width = Math.max(1, Math.round(c.bytes / max * 100)) + '%';
-      if (c.bytes / r.bytes < 0.02) i.className = 'dim';
-      tr.appendChild(i);
-      row.appendChild(tr);
-      row.appendChild(el('div', 'val', fmtB(c.bytes) + '  ' + (100 * c.bytes / r.bytes).toFixed(1).replace('.', ',') + '%'));
-      cats.appendChild(row);
-    }
-    if (r.round && r.round.longValues) {
-      const row = el('div', 'catrow');
-      row.appendChild(el('div', 'lbl', 'varav onödiga decimaler'));
-      const tr = el('div', 'track');
-      const i = el('i');
-      i.style.width = Math.max(1, Math.round(r.round.saving / max * 100)) + '%';
-      tr.appendChild(i); row.appendChild(tr);
-      row.appendChild(el('div', 'val', fmtB(r.round.saving) + '  kan bort'));
-      cats.appendChild(row);
+    const cl = $('cfgList');
+    cl.innerHTML = '';
+    if (cfgFile) {
+      const box = el('div', 'file');
+      const r1 = el('div', 'row1');
+      r1.appendChild(el('div', 'nm', cfgFile.name));
+      r1.appendChild(el('div', 'state ' + (cfgText ? 'ok' : 'err'), cfgText ? 'inläst' : 'fel'));
+      const x = el('button', 'x', '×');
+      x.addEventListener('click', function () { cfgFile = null; cfgText = null; render(); });
+      r1.appendChild(x);
+      box.appendChild(r1);
+      cl.appendChild(box);
     }
 
-    const tt = $('typeTbl');
-    tt.innerHTML = '<tr><th>IFC-klass</th><th class="num">antal</th><th class="num">byte</th><th class="num">andel</th></tr>';
-    for (const t of r.topTypes.slice(0, 18)) {
-      const tr = el('tr');
-      tr.appendChild(el('td', 'name', t.name));
-      tr.appendChild(el('td', 'num', fmtN(t.count)));
-      tr.appendChild(el('td', 'num', fmtB(t.bytes)));
-      tr.appendChild(el('td', 'num', (100 * t.bytes / r.bytes).toFixed(1).replace('.', ',') + '%'));
-      tt.appendChild(tr);
-    }
-
-    const et = $('elemTbl');
-    et.innerHTML = '<tr><th>byggdelsklass</th><th class="num">antal</th><th class="num">byte</th></tr>';
-    for (const t of r.elements.slice(0, 24)) {
-      const tr = el('tr');
-      const td = el('td', 'name');
-      const lab = el('label');
-      const cb = el('input');
-      cb.type = 'checkbox';
-      cb.checked = opts.dropClasses.indexOf(t.name) >= 0;
-      cb.addEventListener('change', function () {
-        const i = opts.dropClasses.indexOf(t.name);
-        if (cb.checked && i < 0) opts.dropClasses.push(t.name);
-        if (!cb.checked && i >= 0) opts.dropClasses.splice(i, 1);
-        custom = true;
-      });
-      lab.appendChild(cb);
-      lab.appendChild(el('span', null, t.name));
-      td.appendChild(lab);
-      tr.appendChild(td);
-      tr.appendChild(el('td', 'num', fmtN(t.count)));
-      tr.appendChild(el('td', 'num', fmtB(t.bytes)));
-      et.appendChild(tr);
-    }
-  }
-
-  /* --- logg --------------------------------------------------------------- */
-  function logLine(text, cls) {
-    const box = $('log');
-    const t = new Date();
-    const ts = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + ':' + ('0' + t.getSeconds()).slice(-2);
-    const line = el('div');
-    const s = el('span', 'ts', ts + '  ');
-    line.appendChild(s);
-    const b = el('span', cls || '', text);
-    line.appendChild(b);
-    box.appendChild(line);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  /* --- analys av tillagda filer ------------------------------------------- */
-  function addFiles(fl) {
-    for (const file of fl) {
-      const low = file.name.toLowerCase();
-      if (!(low.endsWith('.ifc') || low.endsWith('.ifczip') || low.endsWith('.ifcxml'))) continue;
-      if (low.endsWith('.ifcxml')) { logLine('ifcXML stöds inte: ' + file.name, 'err'); continue; }
-      const f = { file: file, state: 'väntar', report: null, result: null, err: null, prog: 1 };
-      files.push(f);
-      queue = queue.then(function () { return analyse(f); });
-    }
-    render();
-  }
-
-  async function analyse(f) {
-    f.state = 'analyserar'; f.prog = 0; render();
-    try {
-      const res = await ask('analyse', { file: f.file, opts: Object.assign({}, opts) },
-        function (t) { logLine('  ' + t, /VARNING/.test(t) ? 'warn' : ''); },
-        function (phase, frac) { f.prog = frac; renderFiles(); });
-      f.report = res.report;
-      f.state = 'analyserad';
-      f.prog = 1;
-      const ca = f.report.sampled ? '≈' : '';
-      logLine(f.file.name + ': ' + ca + fmtN(f.report.instances) + ' instanser, ' + f.report.schema +
-              ', ' + f.report.unit.label + ' — ' + ca + fmtB(f.report.round.saving) + ' i onödiga decimaler.');
-      if (f.report.willStream) {
-        logLine('  ' + f.file.name + ' körs i snabbläge (strömmande): avrundning och ifczip, ' +
-                'men inga dubbletter, ingen strippning och ingen geometrihantering.', 'warn');
-      }
-    } catch (e) {
-      f.state = 'fel'; f.err = e.message; f.prog = 1;
-      logLine(f.file.name + ': ' + e.message, 'err');
-    }
-    render();
+    $('runBtn').disabled = busy || !files.length;
+    $('runBtn').textContent = busy ? 'Analyserar…' : 'Analysera';
   }
 
   /* --- körning ------------------------------------------------------------ */
   async function runAll() {
     if (busy) return;
     busy = true; render();
-    $('resultCard').style.display = '';
-    $('results').innerHTML = '';
-    let totB = 0, totA = 0;
     for (const f of files) {
-      f.result = null;
-      if (f.state === 'fel') continue;
-      f.state = 'optimerar'; f.prog = 0; render();
+      if (f.result) continue;
+      f.state = 'analyserar'; f.prog = 0; f.err = null; render();
       $('phase').textContent = f.file.name;
       try {
-        const o = Object.assign({}, opts, { name: f.file.name });
-        const res = await ask('optimize', { file: f.file, opts: o },
+        const res = await ask({ file: f.file, opts: baseOptions(), configText: cfgText },
           function (t) { logLine('  ' + t, /VARNING/.test(t) ? 'warn' : ''); },
           function (phase, frac) {
-            f.prog = frac; renderFiles();
+            f.prog = frac; render();
             $('bar').style.width = Math.round(frac * 100) + '%';
             $('phase').textContent = f.file.name + ' · ' + phase;
           });
-        f.result = res;
-        f.state = 'klar'; f.prog = 1;
-        totB += res.report.sizeBefore; totA += res.report.sizeAfter;
-        showResult(f);
-        logLine(f.file.name + ': ' + fmtB(res.report.sizeBefore) + ' → ' + fmtB(res.report.sizeAfter) +
-                ' (' + (100 - 100 * res.report.sizeAfter / res.report.sizeBefore).toFixed(1).replace('.', ',') + ' % mindre)', 'ok');
+        f.result = res.result; f.state = 'klar'; f.prog = 1;
+        active = f;
+        const s = f.result.summary;
+        logLine(f.file.name + ': ' + fmtB(f.result.report.bytes) + ', ' +
+                f.result.findings.length + ' fynd — ' + fmtB(s.lossless) +
+                ' går att ta bort utan att tappa något.', 'ok');
+        if (f.result.configError) logLine('Inställningsfilen: ' + f.result.configError, 'err');
       } catch (e) {
-        f.state = 'fel'; f.err = e.message;
+        f.err = e.message; f.state = 'fel'; f.prog = 1;
         logLine(f.file.name + ': ' + e.message, 'err');
       }
       render();
     }
     $('bar').style.width = '100%';
     $('phase').textContent = 'klart';
-    $('resSum').textContent = totB ? fmtB(totB) + ' → ' + fmtB(totA) + '  (' +
-      (100 - 100 * totA / totB).toFixed(1).replace('.', ',') + ' % mindre)' : '';
-    busy = false; render();
+    busy = false; render(); showReport();
   }
 
-  function outName(f) {
-    const n = f.file.name.replace(/\.(ifc|ifczip)$/i, '');
-    return n + (opts.suffix || '_optimerad') + f.result.ext;
-  }
+  /* --- rapporten ---------------------------------------------------------- */
+  function showReport() {
+    const has = active && active.result;
+    for (const id of ['sumCard', 'findCard', 'tblCard']) $(id).style.display = has ? '' : 'none';
+    $('cfgCard').style.display = (has && active.result.config) ? '' : 'none';
+    if (!has) return;
+    const R = active.result, rep = R.report, d = R.diag, s = R.summary;
+    const ca = (R.sampled || rep.sampled) ? '≈' : '';
 
-  function showResult(f) {
-    const r = f.result.report;
-    const box = el('div', 'res');
-    const top = el('div', 'top');
-    top.appendChild(el('div', 'nm', f.file.name));
-    top.appendChild(el('div', 'pct', (100 - 100 * r.sizeAfter / r.sizeBefore).toFixed(1).replace('.', ',') + ' %'));
-    box.appendChild(top);
-    box.appendChild(el('div', 'sizes', fmtB(r.sizeBefore) + '  →  ' + fmtB(r.sizeAfter) +
-      (r.zip ? '  (zippad)' : '')));
+    $('sumFor').textContent = active.file.name;
+    const meta = $('modelMeta');
+    meta.innerHTML = '';
+    const mAdd = function (k, v) { const e = el('span'); e.innerHTML = k + ' <b style="color:var(--text);font-weight:400">' + v + '</b>'; meta.appendChild(e); };
+    mAdd('storlek', fmtB(rep.bytes));
+    mAdd('schema', rep.schema || '?');
+    mAdd('enhet', rep.unit.label);
+    mAdd('instanser', ca + fmtN(rep.instances));
+    mAdd('byggdelar', ca + fmtN(d.products));
+    if (rep.tool) mAdd('exporterad med', String(rep.tool).slice(0, 40));
+    if (R.degraded) mAdd('obs', 'förenklad diagnos — filen är för stor för full genomgång');
+    else if (R.sampled || rep.sampled) mAdd('obs', 'siffrorna är uppräknade ur ett urval av filen');
 
-    const bb = el('div', 'bigbar');
-    const a = el('i', 'after'); a.style.width = (100 * r.sizeAfter / r.sizeBefore) + '%';
-    const g = el('i', 'gone'); g.style.width = (100 - 100 * r.sizeAfter / r.sizeBefore) + '%';
-    bb.appendChild(a); bb.appendChild(g);
-    box.appendChild(bb);
-
-    const facts = el('div', 'facts');
-    const add = function (k, v) { const s = el('span'); s.innerHTML = k + ' <b>' + v + '</b>'; facts.appendChild(s); };
-    if (r.streamed) {
-      add('läge', 'snabbläge (strömmande)');
-      add('instanser', fmtN(r.instancesBefore));
-      add('avrundade tal', fmtN(r.roundedValues || 0));
-    } else {
-      add('instanser', fmtN(r.instancesBefore) + ' → ' + fmtN(r.instancesAfter));
-      add('dubbletter', fmtN(r.merged));
+    const g = $('sumGrid');
+    g.innerHTML = '';
+    const sbox = function (k, v, cls, d2) {
+      const b = el('div', 'sumbox');
+      b.appendChild(el('div', 'k', k));
+      b.appendChild(el('div', 'v ' + (cls || ''), v));
+      b.appendChild(el('div', 'd', d2));
+      g.appendChild(b);
+    };
+    sbox('utan att tappa något', fmtB(s.lossless), '',
+         'Dubbletter, decimalbrus och geometri som kunde varit extrusioner. Modellen är likadan efteråt.');
+    sbox('sällan använd metadata', fmtB(s.meta), 'warn',
+         'Revit-parametrar, mängder, 2D-linjer, lådor. Försvinner ur IFC:n men finns kvar i Revit.');
+    sbox('kräver ett beslut', fmtB(s.lossy), 'bad',
+         'Rum, rumsavgränsningar, standard-Pset, mesh-upplösning. Någon kan behöva det — stäm av.');
+    if (s.rework) {
+      const b = el('div', 'warnbox');
+      b.style.gridColumn = '1 / -1';
+      b.innerHTML = '<b>' + fmtB(s.rework) + '</b> ligger dessutom i geometri som är tyngre än den ' +
+        'behöver vara. Den siffran räknas inte in ovan, för den försvinner inte med en kryssruta — ' +
+        'den kräver att något görs om i modellen. Se fynden nedan.';
+      g.appendChild(b);
     }
-    if (r.geom && r.geom.facesBefore) add('ytor', fmtN(r.geom.facesBefore) + ' → ' + fmtN(r.geom.facesAfter));
-    if (r.geom && r.geom.shellsSkipped) add('skal orörda', fmtN(r.geom.shellsSkipped));
-    if (r.weld && r.weld.lists) add('svetsade hörn', fmtN(r.weld.before) + ' → ' + fmtN(r.weld.after));
-    if (r.box && r.box.replaced) add('lådor', fmtN(r.box.replaced));
-    add('tid', (r.totalMs / 1000).toFixed(1).replace('.', ',') + ' s');
-    box.appendChild(facts);
 
-    const vb = el('div', 'vbadge' + ((r.verify && r.verify.ok && !r.dangling) ? '' : ' bad'));
-    vb.textContent = r.dangling ? 'BRUTNA REFERENSER: ' + r.dangling
-      : (r.verify ? (r.verify.ok ? (r.verify.note ? 'oförändrade instansnummer — referenserna kan inte ha brutits'
-                                                 : 'kontrollerad — inga brutna referenser')
-                                : 'kontroll: ' + r.verify.problems.join('; '))
-                  : 'kontroll ej körd');
-    const vrow = el('div', 'facts');
-    vrow.appendChild(vb);
-    if (r.inputDangling) {
-      const w = el('div', 'vbadge bad');
-      w.textContent = fmtN(r.inputDangling) + ' brutna referenser fanns i originalet';
-      vrow.appendChild(w);
-    }
-    box.appendChild(vrow);
+    const zip = R.findings.find(function (f) { return f.id === 'zip'; });
+    if (zip) {
+      $('zipBox').style.display = '';
+      $('zipBox').innerHTML = zip.klar
+        ? '<b>Zippat redan.</b> ' + zip.orsak
+        : '<b>Snabbaste vinsten:</b> spara som zippad IFC. Det skulle ta filen från ' +
+          fmtB(rep.bytes) + ' till ungefär ' + fmtB(rep.bytes * 0.13) +
+          ' utan att en enda rad information försvinner — och det ovanpå allt annat nedan.';
+    } else $('zipBox').style.display = 'none';
 
-    if (r.removed && r.removed.length) {
-      const d = el('details', 'more');
-      d.appendChild(el('summary', null, 'Vad togs bort?'));
-      const t = el('table', 'tbl');
-      t.innerHTML = '<tr><th>klass</th><th class="num">antal</th></tr>';
-      for (const x of r.removed) {
-        const tr = el('tr');
-        tr.appendChild(el('td', 'name', x.name));
-        tr.appendChild(el('td', 'num', fmtN(x.count)));
-        t.appendChild(tr);
+    /* fynden */
+    const box = $('findings');
+    box.innerHTML = '';
+    const maxB = Math.max.apply(null, R.findings.map(function (f) { return f.bytes; }).concat([1]));
+    let i = 0;
+    for (const f of R.findings) {
+      if (f.id === 'zip') continue;
+      const c = el('div', 'finding' + (i < 3 ? ' top' : ''));
+      i++;
+      c.appendChild(el('h3', null, f.titel));
+      const w = el('div', 'weight');
+      if (f.bytes > 0) {
+        w.appendChild(el('div', 'mb', fmtB(f.bytes)));
+        w.appendChild(el('div', 'pc', pct(f.share) + ' av filen'));
+        if (f.kraverModellarbete) w.appendChild(el('div', 'pc', '· ingen kryssruta tar bort detta'));
+      } else {
+        w.appendChild(el('div', 'pc', 'ingen direkt vikt — men påverkar hela exporten'));
       }
-      d.appendChild(t);
-      box.appendChild(d);
+      c.appendChild(w);
+      if (f.bytes > 0) {
+        const tr = el('div', 'track'); const ii = el('i');
+        ii.style.width = Math.max(2, Math.round(f.bytes / maxB * 100)) + '%';
+        tr.appendChild(ii); c.appendChild(tr);
+      }
+      const dl = el('dl');
+      const row = function (k, v) { dl.appendChild(el('dt', null, k)); dl.appendChild(el('dd', null, v)); };
+      row('vad', f.vad);
+      row('varför', f.orsak);
+      row('gör så här', f.atgard);
+      c.appendChild(dl);
+
+      if (f.installning && REVIT_SETTINGS[f.installning]) {
+        const meta2 = REVIT_SETTINGS[f.installning];
+        const cur = R.config ? R.config.known.find(function (x) { return x.key === f.installning; }) : null;
+        const sr = el('div', 'setting');
+        sr.appendChild(el('span', 'tab', meta2.tab));
+        sr.appendChild(el('span', 'lbl', meta2.label));
+        if (cur) {
+          const v = cur.value;
+          const isBool = typeof v === 'boolean';
+          const shown = isBool ? (v ? 'PÅ' : 'AV') : String(v);
+          const good = f.börVara === undefined ? null : (v === f.börVara);
+          const n = el('span', 'now ' + (good === true ? 'ok' : (isBool && v ? 'on' : 'off')),
+                       'din inställning: ' + shown);
+          sr.appendChild(n);
+          if (f.börVara !== undefined && good === false) {
+            sr.appendChild(el('span', 'now on', '→ bör vara ' +
+              (typeof f.börVara === 'boolean' ? (f.börVara ? 'PÅ' : 'AV') : f.börVara)));
+          }
+        } else {
+          sr.appendChild(el('span', 'now off', 'ladda in din uppsättning för att se värdet'));
+        }
+        c.appendChild(sr);
+      }
+
+      const tags = el('div', 'tagrow');
+      const tg = function (t, cls) { tags.appendChild(el('span', 'tag2 ' + cls, t)); };
+      if (f.forlust === 'ingen') tg('förlustfritt', 'ok');
+      else if (f.forlust === 'metadata') tg('tappar metadata', 'meta');
+      else tg('kräver beslut', 'loss');
+      if (f.installning === null) tg('ingen exportinställning styr detta', '');
+      c.appendChild(tags);
+      box.appendChild(c);
     }
 
-    const row = el('div', 'btnrow');
-    const dl = el('button', 'btn sm', 'Ladda ner ' + outName(f));
-    dl.addEventListener('click', function () { download(f); });
-    row.appendChild(dl);
-    box.appendChild(row);
-    $('results').appendChild(box);
-  }
+    /* tabeller */
+    const ct = $('classTbl');
+    ct.innerHTML = '<tr><th>byggdelsklass</th><th class="num">objekt</th><th class="num">geometri</th>' +
+                   '<th class="num">byte/objekt</th><th>form</th><th class="wbar"></th></tr>';
+    const maxC = d.classes.length ? d.classes[0].bytes : 1;
+    for (const c of d.classes.slice(0, 22)) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'name', c.cls));
+      tr.appendChild(el('td', 'num', fmtN(c.products)));
+      tr.appendChild(el('td', 'num', fmtB(c.bytes)));
+      tr.appendChild(el('td', 'num', fmtB(c.perProduct)));
+      const forms = Object.keys(c.forms).sort(function (a, b) { return c.forms[b] - c.forms[a]; });
+      tr.appendChild(el('td', null, forms.slice(0, 2).join(', ')));
+      const td = el('td', 'wbar');
+      const b2 = el('div', 'bar2'); const ii = el('i');
+      ii.style.width = Math.max(2, Math.round(c.bytes / maxC * 100)) + '%';
+      b2.appendChild(ii); td.appendChild(b2); tr.appendChild(td);
+      ct.appendChild(tr);
+    }
 
-  function download(f) {
-    const url = URL.createObjectURL(f.result.blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = outName(f);
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    const pt = $('psetTbl');
+    pt.innerHTML = '<tr><th>uppsättning</th><th>sort</th><th class="num">antal</th><th class="num">byte</th><th class="wbar"></th></tr>';
+    const maxP = d.psets.length ? d.psets[0].bytes : 1;
+    for (const p of d.psets.slice(0, 20)) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'name', p.name));
+      tr.appendChild(el('td', null, isRevitPset(p.name) ? 'Revit' : p.kind));
+      tr.appendChild(el('td', 'num', fmtN(p.count)));
+      tr.appendChild(el('td', 'num', fmtB(p.bytes)));
+      const td = el('td', 'wbar');
+      const b2 = el('div', 'bar2'); const ii = el('i');
+      ii.style.width = Math.max(2, Math.round(p.bytes / maxP * 100)) + '%';
+      b2.appendChild(ii); td.appendChild(b2); tr.appendChild(td);
+      pt.appendChild(tr);
+    }
+
+    const ft = $('formTbl');
+    ft.innerHTML = '<tr><th>representationsform</th><th class="num">representationer</th><th class="num">byte</th><th class="num">andel</th></tr>';
+    const totForm = d.forms.reduce(function (a, b) { return a + b.bytes; }, 0) || 1;
+    for (const f2 of d.forms.slice(0, 12)) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'name', f2.rtype));
+      tr.appendChild(el('td', 'num', fmtN(f2.reps)));
+      tr.appendChild(el('td', 'num', fmtB(f2.bytes)));
+      tr.appendChild(el('td', 'num', pct(f2.bytes / totForm)));
+      ft.appendChild(tr);
+    }
+
+    /* inställningarna */
+    if (R.config) {
+      $('cfgName').textContent = R.config.name || '';
+      const body = $('cfgBody');
+      body.innerHTML = '';
+      const flagged = {};
+      for (const f of R.findings) if (f.installning && f.börVara !== undefined) flagged[f.installning] = f.börVara;
+      const tabs = {};
+      for (const k of R.config.known) {
+        (tabs[k.tab] = tabs[k.tab] || []).push(k);
+      }
+      for (const tab of ['General', 'Additional Content', 'Property Sets', 'Level of Detail', 'Advanced']) {
+        if (!tabs[tab]) continue;
+        body.appendChild(el('div', 'cfgtab', tab));
+        for (const k of tabs[tab]) {
+          const isBool = typeof k.value === 'boolean';
+          let shown = String(k.value);
+          if (isBool) shown = k.value ? 'PÅ' : 'AV';
+          if (k.key === 'IFCFileType') shown = FILE_TYPES[k.value] || shown;
+          if (k.key === 'SpaceBoundaries') shown = SPACE_BOUNDARY_LEVELS[k.value] || shown;
+          const bad = (k.key in flagged) && k.value !== flagged[k.key];
+          const r = el('div', 'cfgrow' + (bad ? ' flag' : ''));
+          const lab = el('div', null, k.label + (bad ? '  ← se fyndet ovan' : ''));
+          r.appendChild(lab);
+          r.appendChild(el('div', 'val ' + (isBool ? (k.value ? 'on' : 'off') : 'neutral'), shown));
+          body.appendChild(r);
+        }
+      }
+    }
   }
 
   function reportText() {
-    const rows = ['IFC Optimizer 1.0 — BIM Engine', new Date().toLocaleString('sv-SE'), ''];
-    rows.push('Nivå: ' + (custom ? 'anpassad' : preset));
-    rows.push('Koordinatprecision: ' + (opts.roundCoords ? opts.tolMm + ' mm' : 'av'));
-    rows.push('');
-    for (const f of files) {
-      if (!f.result) continue;
-      const r = f.result.report;
-      rows.push(f.file.name);
-      rows.push('  ' + fmtB(r.sizeBefore) + ' -> ' + fmtB(r.sizeAfter) + '  (' +
-        (100 - 100 * r.sizeAfter / r.sizeBefore).toFixed(1) + ' % mindre)');
-      rows.push('  instanser ' + r.instancesBefore + ' -> ' + r.instancesAfter +
-        ', dubbletter ' + r.merged);
-      if (r.geom && r.geom.facesBefore) rows.push('  ytor ' + r.geom.facesBefore + ' -> ' + r.geom.facesAfter +
-        ' (' + r.geom.shellsSkipped + ' skal orörda)');
-      rows.push('  kontroll: ' + (r.verify ? (r.verify.ok ? 'OK' : r.verify.problems.join('; ')) : 'ej körd'));
-      const top = (r.removed || []).slice(0, 8).map(function (x) { return x.name + ' x' + x.count; });
-      if (top.length) rows.push('  borttaget: ' + top.join(', '));
-      rows.push('');
+    if (!active || !active.result) return '';
+    const R = active.result, rep = R.report, s = R.summary;
+    const L = ['IFC Diagnos — BIM Engine', new Date().toLocaleString('sv-SE'), '',
+               'Fil: ' + active.file.name,
+               'Storlek: ' + fmtB(rep.bytes) + '   schema ' + rep.schema + '   enhet ' + rep.unit.label,
+               'Exporterad med: ' + (rep.tool || 'okänt'), ''];
+    L.push('Möjlig besparing:');
+    L.push('  utan att tappa något:      ' + fmtB(s.lossless));
+    L.push('  sällan använd metadata:    ' + fmtB(s.meta));
+    L.push('  kräver ett beslut:         ' + fmtB(s.lossy));
+    L.push('');
+    L.push('FYND');
+    for (const f of R.findings) {
+      L.push('');
+      L.push('* ' + f.titel + (f.bytes ? '  (' + fmtB(f.bytes) + ', ' + pct(f.share) + ')' : ''));
+      L.push('  Vad:     ' + f.vad);
+      L.push('  Varför:  ' + f.orsak);
+      L.push('  Åtgärd:  ' + f.atgard);
+      if (f.installning && REVIT_SETTINGS[f.installning]) {
+        const m = REVIT_SETTINGS[f.installning];
+        const cur = R.config ? R.config.known.find(function (x) { return x.key === f.installning; }) : null;
+        L.push('  Inställning: [' + m.tab + '] ' + m.label +
+               (cur ? '  (din: ' + cur.value + ')' : ''));
+      }
     }
-    return rows.join('\n');
+    L.push('');
+    L.push('TYNGSTA BYGGDELSKLASSERNA');
+    for (const c of R.diag.classes.slice(0, 12)) {
+      L.push('  ' + c.cls.padEnd(30) + fmtN(c.products).padStart(8) + ' st   ' +
+             fmtB(c.bytes).padStart(10) + '   ' + fmtB(c.perProduct) + '/objekt');
+    }
+    return L.join('\n');
   }
 
   /* --- händelser ---------------------------------------------------------- */
-  function bind() {
-    const drop = $('drop'), input = $('fileInput');
-    drop.addEventListener('click', function () { input.click(); });
-    input.addEventListener('change', function () { addFiles(input.files); input.value = ''; });
+  function bindDrop(zone, input, handler) {
+    zone.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () { handler(input.files); input.value = ''; });
     ['dragenter', 'dragover'].forEach(function (e) {
-      drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+      zone.addEventListener(e, function (ev) { ev.preventDefault(); zone.classList.add('over'); });
     });
     ['dragleave', 'drop'].forEach(function (e) {
-      drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+      zone.addEventListener(e, function (ev) { ev.preventDefault(); zone.classList.remove('over'); });
     });
-    drop.addEventListener('drop', function (ev) {
-      if (ev.dataTransfer && ev.dataTransfer.files) addFiles(ev.dataTransfer.files);
-    });
-    document.addEventListener('dragover', function (e) { e.preventDefault(); });
-    document.addEventListener('drop', function (e) { e.preventDefault(); });
-
-    $('presetSeg').addEventListener('click', function (ev) {
-      const b = ev.target.closest('button');
-      if (b) setPreset(b.dataset.p);
-    });
-    $('tolSeg').addEventListener('click', function (ev) {
-      const b = ev.target.closest('button');
-      if (!b) return;
-      const t = parseFloat(b.dataset.t);
-      if (t === 0) opts.roundCoords = false;
-      else { opts.roundCoords = true; opts.tolMm = t; }
-      render();
-    });
-    $('runBtn').addEventListener('click', runAll);
-    $('dlAll').addEventListener('click', function () {
-      let d = 0;
-      for (const f of files) {
-        if (!f.result) continue;
-        setTimeout(function (g) { return function () { download(g); }; }(f), d);
-        d += 400;
-      }
-    });
-    $('copyRep').addEventListener('click', function () {
-      const t = reportText();
-      navigator.clipboard.writeText(t).then(function () {
-        logLine('Rapporten kopierad.', 'ok');
-      }, function () {
-        logLine('Kunde inte kopiera — markera i loggen i stället.', 'err');
-      });
+    zone.addEventListener('drop', function (ev) {
+      if (ev.dataTransfer && ev.dataTransfer.files) handler(ev.dataTransfer.files);
     });
   }
 
-  /* --- start -------------------------------------------------------------- */
-  opts = presetOptions('medel');
+  function bind() {
+    bindDrop($('drop'), $('fileInput'), addFiles);
+    bindDrop($('dropCfg'), $('cfgInput'), function (fl) { if (fl && fl[0]) setConfig(fl[0]); });
+    document.addEventListener('dragover', function (e) { e.preventDefault(); });
+    document.addEventListener('drop', function (e) { e.preventDefault(); });
+    $('runBtn').addEventListener('click', runAll);
+    $('copyRep').addEventListener('click', function () {
+      navigator.clipboard.writeText(reportText()).then(
+        function () { logLine('Rapporten kopierad — klistra in den i mejlet till modellören.', 'ok'); },
+        function () { logLine('Kunde inte kopiera.', 'err'); });
+    });
+  }
+
   startWorker();
   bind();
   render();
-  logLine('Redo. Allt arbete sker lokalt — inga filer laddas upp någonstans.', 'ok');
-  if (typeof CompressionStream === 'undefined') {
-    logLine('Webbläsaren saknar CompressionStream — .ifczip blir okomprimerad.', 'warn');
-  }
+  logLine('Redo. Dra in en IFC och gärna din exportuppsättning från Revit.', 'ok');
 })();
 
 </script>

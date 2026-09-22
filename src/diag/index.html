@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFC Diagnos — BIM Engine</title>
+<style>
+/*@CSS*/
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <img class="logo-mark" src="/*@LOGO*/" alt="BIM Engine">
+      <div>
+        <h1>IFC Diagnos</h1>
+        <div class="sub">BIM Engine · varför väger filen så mycket — och vad du ändrar</div>
+      </div>
+    </div>
+    <div class="tag" id="engineState">motor · startar</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>1 · Filer <span class="right" id="fileSum"></span></h2>
+        <div class="drop" id="drop">
+          <div class="ic">⬇</div>
+          <p><strong>Dra in IFC-filen här</strong> eller klicka för att välja<br>
+          <span class="muted">.ifc och .ifczip · inget lämnar datorn</span></p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".ifc,.ifczip,.IFC" style="display:none">
+        <div class="filelist" id="fileList"></div>
+
+        <h2 style="margin-top:22px">Exportinställningar <span class="right">valfritt</span></h2>
+        <div class="drop dropsmall" id="dropCfg">
+          <div class="ic">⚙</div>
+          <p><strong>Dra in din IFC-uppsättning (.json)</strong><br>
+          <span class="muted">Revit → Export → IFC → Modify setup → spara uppsättningen</span></p>
+        </div>
+        <input type="file" id="cfgInput" accept=".json,.txt" style="display:none">
+        <div class="filelist" id="cfgList"></div>
+        <div class="hint">Med inställningsfilen kan diagnosen peka ut exakt vilken kryssruta som
+          orsakar vad — och upptäcka motsägelser, som att en inställning är av fast datat ändå ligger i filen.</div>
+
+        <button class="btn" id="runBtn" disabled>Analysera</button>
+        <div class="progress"><div class="bar" id="bar"></div></div>
+        <div class="phase" id="phase"></div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" id="sumCard" style="display:none">
+        <h2>2 · Sammanfattning <span class="right" id="sumFor"></span></h2>
+        <div class="meta" id="modelMeta" style="font-family:var(--mono);font-size:11px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:14px"></div>
+        <div class="sumgrid" id="sumGrid"></div>
+        <div class="warnbox" id="zipBox" style="display:none"></div>
+        <div class="btnrow">
+          <button class="btn ghost sm" id="copyRep">Kopiera rapport</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="findCard" style="display:none">
+    <h2>3 · Vad som väger — och vad du gör åt det</h2>
+    <div id="findings"></div>
+  </div>
+
+  <div class="card" id="tblCard" style="display:none">
+    <h2>4 · Tyngsta byggdelsklasserna</h2>
+    <div class="hint">Kolumnen <b>byte per objekt</b> är den som avslöjar syndarna: en klass med få objekt
+      men hög vikt per objekt har geometri som borde ses över.</div>
+    <table class="tbl" id="classTbl"></table>
+
+    <h2 style="margin-top:26px">Egenskapsuppsättningar</h2>
+    <table class="tbl" id="psetTbl"></table>
+
+    <h2 style="margin-top:26px">Geometriformer</h2>
+    <table class="tbl" id="formTbl"></table>
+  </div>
+
+  <div class="card" id="cfgCard" style="display:none">
+    <h2>5 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
+    <div id="cfgBody"></div>
+  </div>
+
+  <footer>
+    IFC Diagnos 1.0 · BIM Engine AB · allt arbete sker lokalt i webbläsaren<br>
+    behöver du krympa filen direkt — använd <a href="../" style="color:var(--mint)">IFC Optimizer</a>
+  </footer>
+</div>
+
+<script id="engineSrc" type="text/js-worker">
+/*@ENGINE*/
+</script>
+<script>
+/*@OPTIONS*/
+</script>
+<script>
+/*@APP*/
+</script>
+</body>
+</html>

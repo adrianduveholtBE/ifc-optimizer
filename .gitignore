@@ -2,3 +2,4 @@ test/out/
 __pycache__/
 *.pyc
 install-dir.txt
+big-dir.txt

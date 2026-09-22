@@ -17,7 +17,18 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTDIR = os.path.join(ROOT, 'test', 'out')
-BIGDIR = os.environ.get('IFC_BIG_DIR') or os.path.join(os.path.expanduser('~'), 'Dokument')
+def _big_dir():
+    """Mappen med stora testmodeller: IFC_BIG_DIR, annars raden i
+    big-dir.txt (lokal fil, ingar inte i repot)."""
+    v = os.environ.get('IFC_BIG_DIR')
+    if v:
+        return v.strip()
+    p = os.path.join(ROOT, 'big-dir.txt')
+    if os.path.exists(p):
+        return io.open(p, encoding='utf-8').read().strip()
+    return os.path.join(os.path.expanduser('~'), 'Dokument')
+
+BIGDIR = _big_dir()
 PORT = int(os.environ.get('PORT', '8127'))
 
 class H(SimpleHTTPRequestHandler):
