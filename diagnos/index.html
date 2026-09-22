@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IFC Diagnos — BIM Engine</title>
-<!-- byggd 2026-09-22 15:16 ur C:\Dev\jobb\IFC Optimizer -->
+<!-- byggd 2026-09-22 15:37 ur C:\Dev\jobb\IFC Optimizer -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap');
 
@@ -318,8 +318,24 @@ td.wbar { width: 90px; }
     <div id="findings"></div>
   </div>
 
+  <div class="card" id="weighCard" style="display:none">
+    <h2>4 · Tyngsta objekten — vad du kan utesluta <span class="right" id="weighSum"></span></h2>
+    <div class="hint">Vikten följer sällan antalet objekt utan <b>hur de är modellerade</b>.
+      Kolumnen <b>per objekt</b> är den som avslöjar: en familj som väger hundra gånger mer per
+      objekt än grannarna är nästan alltid modellerad på ett sätt som IFC har svårt att uttrycka
+      kompakt. Kryssa i raderna för att se vad de väger tillsammans.<br>
+      Vikten är objektet och dess geometri. Egenskaperna redovisas för sig längre ner, och
+      delad geometri bokförs på ett av objekten så att ingenting räknas två gånger.</div>
+    <table class="tbl" id="weighTbl"></table>
+    <div class="warnbox" id="weighPick" style="display:none"></div>
+    <details class="more">
+      <summary>Per IFC-klass i stället för familj</summary>
+      <table class="tbl" id="weighClsTbl"></table>
+    </details>
+  </div>
+
   <div class="card" id="tblCard" style="display:none">
-    <h2>4 · Tyngsta byggdelsklasserna</h2>
+    <h2>5 · Geometri och egenskaper i detalj</h2>
     <div class="hint">Kolumnen <b>byte per objekt</b> är den som avslöjar syndarna: en klass med få objekt
       men hög vikt per objekt har geometri som borde ses över.</div>
     <table class="tbl" id="classTbl"></table>
@@ -332,7 +348,7 @@ td.wbar { width: 90px; }
   </div>
 
   <div class="card" id="cfgCard" style="display:none">
-    <h2>5 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
+    <h2>6 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
     <div id="cfgBody"></div>
   </div>
 
@@ -3197,6 +3213,252 @@ function findLengthUnit(buf, from) {
   return null;
 }
 
+/* ===== 66-weigh.js ===== */
+/* ==========================================================================
+   66-weigh.js  ·  vad väger varje familj och klass — i vilken fil som helst
+   --------------------------------------------------------------------------
+   Djupanalysen i 76 behöver hela referensgrafen i minnet och tar därför slut
+   vid några hundra megabyte. Den här gör samma jobb strömmande.
+
+   Tricket: i en IFC pekar referenser nästan alltid bakåt, mot lägre
+   instansnummer — barnen skrivs före föräldern. (Mätt på en Revit-modell:
+   99,97 % av referenserna.) Då räcker det att gå igenom filen *baklänges*:
+   när vi möter en byggdel vet vi vem den är, och kan stämpla allt den pekar
+   på med samma ägare innan vi kommer dit.
+
+   Minnet blir 2 byte per instansnummer i stället för en hel graf.
+   ========================================================================== */
+
+const WEIGH_CHUNK = 32 * 1048576;
+
+/* Läs igenom statements i [from,to). cb(start, end, idStart, idEnd, typeStart,
+   typeEnd, paramStart, paramEnd). Returnerar offseten efter sista hela
+   statement. */
+function scanStatements(buf, from, to, cb) {
+  let p = from, last = from;
+  while (p < to) {
+    p = skipWs(buf, p, to);
+    if (p >= to) break;
+    if (buf[p] !== CH_HASH) { p++; continue; }
+    const s = p;
+    let q = p + 1, nd = 0;
+    while (q < to && isDigit(buf[q])) { q++; nd++; }
+    if (nd === 0) { p++; continue; }
+    const idEnd = q;
+    q = skipWs(buf, q, to);
+    if (q >= to || buf[q] !== CH_EQ) { p = q > p ? q : p + 1; continue; }
+    q = skipWs(buf, q + 1, to);
+    const tS = q;
+    while (q < to && isNameChar(buf[q])) q++;
+    const tE = q;
+    q = skipWs(buf, q, to);
+    if (q >= to || buf[q] !== CH_LP) { p = q > p ? q : p + 1; continue; }
+    const close = skipGroup(buf, q, to);
+    if (close < 0) break;
+    let e = skipWs(buf, close, to);
+    if (e < to && buf[e] === CH_SEMI) e++;
+    cb(s, e, p + 1, idEnd, tS, tE, q, close);
+    last = e;
+    p = e;
+  }
+  return last;
+}
+
+/* "IFCREL..." utan att bygga en sträng */
+const SEQ_IFCREL = [73, 70, 67, 82, 69, 76];   // IFCREL i versaler
+function startsWithIfcRel(buf, from, to) {
+  if (to - from < 6) return false;
+  for (let i = 0; i < 6; i++) {
+    let c = buf[from + i];
+    if (c >= CH_a && c <= CH_z) c -= 32;
+    if (c !== SEQ_IFCREL[i]) return false;
+  }
+  return true;
+}
+
+function readUint(buf, from, to) {
+  let v = 0;
+  for (let i = from; i < to; i++) v = v * 10 + (buf[i] - CH_0);
+  return v;
+}
+
+/* Familjenamnet ur Revits objektnamn: "Vägg:Betong 200:123456" -> "Vägg:Betong 200" */
+function familyFromName(name) {
+  if (!name) return '';
+  const s = String(name);
+  const m = /^(.*):(\d+)$/.exec(s);
+  return (m ? m[1] : s).trim();
+}
+
+/* --------------------------------------------------------------------------
+   weighByOwner — två strömmande pass
+   -------------------------------------------------------------------------- */
+async function weighByOwner(file, hooks) {
+  const prog = (hooks && hooks.prog) || function () {};
+  const log = (hooks && hooks.log) || function () {};
+  const size = file.size;
+
+  /* ---- pass 1: hitta högsta instansnummer och ankare per block ---- */
+  const anchors = [];            // offset till första hela statement i varje block
+  let maxId = 0, instances = 0, dataStart = 0, dataEnd = size;
+
+  {
+    const head = new Uint8Array(await file.slice(0, Math.min(size, 4 * 1048576)).arrayBuffer());
+    const at = findSeq(head, SEQ_DATA, 0, head.length);
+    if (at < 0) throw new Error('Hittar ingen DATA-sektion.');
+    dataStart = at + SEQ_DATA.length;
+  }
+
+  let pos = dataStart;
+  let carry = null, carryAt = 0;
+  while (pos < size) {
+    const end = Math.min(size, pos + WEIGH_CHUNK);
+    const chunk = new Uint8Array(await file.slice(pos, end).arrayBuffer());
+    let buf, base;
+    if (carry && carry.length) {
+      buf = new Uint8Array(carry.length + chunk.length);
+      buf.set(carry, 0); buf.set(chunk, carry.length);
+      base = carryAt;
+    } else { buf = chunk; base = pos; }
+
+    let first = -1;
+    const consumed = scanStatements(buf, 0, buf.length, function (s, e, idS, idE) {
+      if (first < 0) { first = base + s; }
+      const id = readUint(buf, idS, idE);
+      if (id > maxId) maxId = id;
+      instances++;
+    });
+    if (first >= 0) anchors.push(first);
+    carry = consumed < buf.length ? buf.slice(consumed) : null;
+    carryAt = base + consumed;
+    pos = end;
+    prog('Läser igenom filen', 0.05 + 0.35 * (pos / size));
+  }
+  dataEnd = carryAt;
+  if (!anchors.length) throw new Error('Hittade inga instanser.');
+  anchors.push(dataEnd);
+
+  if (maxId > 200000000) throw new Error('Instansnumren är orimligt höga (' + fmtNum(maxId) + ').');
+
+  /* ---- pass 2: baklänges, stämpla ägare och räkna byte ---- */
+  const ownerOf = new Uint16Array(maxId + 2);     // 0 = ingen ägare
+  const owners = [null];                          // plats 0 används inte
+  const ownerKey = new Map();
+  const bytes = [0];
+  const counts = [0];
+  let unowned = 0, overflow = 0;
+
+  const slotFor = function (cls, family) {
+    const key = cls + '|' + family;
+    let s = ownerKey.get(key);
+    if (s === undefined) {
+      if (owners.length >= 65500) { overflow++; return 1; }
+      s = owners.length;
+      owners.push({ cls: cls, family: family });
+      bytes.push(0); counts.push(0);
+      ownerKey.set(key, s);
+    }
+    return s;
+  };
+  slotFor('(övrigt)', '');
+
+  const attrs = [];
+  for (let k = anchors.length - 2; k >= 0; k--) {
+    const lo = anchors[k], hi = anchors[k + 1];
+    const buf = new Uint8Array(await file.slice(lo, hi).arrayBuffer());
+    const stmts = [];
+    scanStatements(buf, 0, buf.length, function (s, e, idS, idE, tS, tE, pS, pE) {
+      stmts.push(s, e, idS, idE, tS, tE, pS, pE);
+    });
+
+    for (let j = stmts.length - 8; j >= 0; j -= 8) {
+      const s = stmts[j], e = stmts[j + 1], idS = stmts[j + 2], idE = stmts[j + 3];
+      const tS = stmts[j + 4], tE = stmts[j + 5], pS = stmts[j + 6], pE = stmts[j + 7];
+      const id = readUint(buf, idS, idE);
+      let slot = id <= maxId ? ownerOf[id] : 0;
+
+      if (slot === 0) {
+        /* Kan det vara en byggdel? Billig förkontroll: attribut 1 är en sträng.
+           Relationer ser likadana ut — IfcRelAssignsToGroup har också sju
+           attribut där det sjunde är en referens — och eftersom de skrivs sist
+           i filen skulle de annars stämpla hela modellen som sin. Därför
+           utesluts IFCREL* uttryckligen. */
+        let c = skipWs(buf, pS + 1, pE);
+        if (buf[c] === CH_QUOTE && !startsWithIfcRel(buf, tS, tE)) {
+          splitAttrs(buf, pS + 1, pE, attrs);
+          /* IfcProduct: GlobalId, OwnerHistory, Name, Description, ObjectType,
+             ObjectPlacement, Representation */
+          if (attrs.length >= 14) {
+            const rt = trimRange(buf, attrs[12], attrs[13]);
+            if (buf[rt[0]] === CH_HASH && rt[1] - rt[0] > 1) {
+              const cls = ascii(buf, tS, tE).toUpperCase();
+              if (!cls.endsWith('TYPE')) {
+                let nm = quotedAt(buf, attrs[4], attrs[5]);
+                if (!nm) nm = quotedAt(buf, attrs[8], attrs[9]);   // ObjectType
+                slot = slotFor(cls, familyFromName(nm));
+                if (id <= maxId) ownerOf[id] = slot;
+                counts[slot]++;
+              }
+            }
+          }
+        }
+      }
+
+      if (slot !== 0) {
+        bytes[slot] += (e - s);
+        /* stämpla allt den pekar på */
+        let p = pS;
+        while (p < pE) {
+          const ch = buf[p];
+          if (ch === CH_QUOTE) { p = skipQuotedFrom(buf, p, pE); continue; }
+          if (ch === CH_HASH) {
+            let q = p + 1, v = 0, n2 = 0;
+            while (q < pE && isDigit(buf[q])) { v = v * 10 + (buf[q] - CH_0); q++; n2++; }
+            if (n2 > 0) {
+              if (v <= maxId && ownerOf[v] === 0) ownerOf[v] = slot;
+              p = q; continue;
+            }
+          }
+          p++;
+        }
+      } else {
+        unowned += (e - s);
+      }
+    }
+    prog('Väger objekten', 0.4 + 0.55 * (1 - k / anchors.length));
+  }
+
+  const list = [];
+  for (let s = 1; s < owners.length; s++) {
+    if (!bytes[s]) continue;
+    list.push({
+      cls: owners[s].cls, family: owners[s].family,
+      count: counts[s], bytes: bytes[s],
+      perObject: counts[s] ? bytes[s] / counts[s] : bytes[s]
+    });
+  }
+  list.sort(function (a, b) { return b.bytes - a.bytes; });
+
+  /* per klass */
+  const byCls = new Map();
+  for (const o of list) {
+    let c = byCls.get(o.cls);
+    if (!c) { c = { cls: o.cls, bytes: 0, count: 0, families: 0 }; byCls.set(o.cls, c); }
+    c.bytes += o.bytes; c.count += o.count; c.families++;
+  }
+  const classes = Array.from(byCls.values()).sort(function (a, b) { return b.bytes - a.bytes; });
+  for (const c of classes) c.perObject = c.count ? c.bytes / c.count : c.bytes;
+
+  if (overflow) log('Fler än 65 000 olika familjer — de sista slogs ihop under "(övrigt)".');
+  log('Vägning klar: ' + fmtNum(instances) + ' instanser, ' + fmtNum(list.length) +
+      ' familjer, ' + fmtBytes(unowned) + ' kunde inte knytas till någon byggdel.');
+
+  return {
+    families: list.slice(0, 200), classes: classes, instances: instances,
+    unowned: unowned, owned: size - unowned, streamed: true
+  };
+}
+
 /* ===== 70-write.js ===== */
 /* ==========================================================================
    70-write.js  ·  numrera om och skriv ut filen
@@ -3921,7 +4183,23 @@ function cfgGet(cfg, key) {
             'metadata' = du tappar information som sällan används nedströms
             'ja' = du tappar något någon kan behöva
    -------------------------------------------------------------------------- */
-function buildFindings(rep, diag, cfg) {
+/* Klasser som nästan alltid betyder "något är modellerat på ett sätt som
+   kostar mycket i IFC" när de ligger högt i viktlistan. */
+const HEAVY_CLASS_HINTS = {
+  IFCPLATE: 'paneler i curtain wall-system — undertak, fasader och glaspartier som modellerats ' +
+            'som curtain panels blir en IfcPlate per panel med egen geometri, en klassisk storlekstjuv',
+  IFCCURTAINWALL: 'curtain wall-system, där varje panel och post blir ett eget objekt',
+  IFCMEMBER: 'poster i curtain wall-system, eller reglar och strävor',
+  IFCREINFORCINGBAR: 'armeringsjärn — varje stång blir ett objekt med svept geometri',
+  IFCRAILING: 'räcken, där balusterdelningen ger extremt många små kroppar',
+  IFCSTAIR: 'trappor, ofta med varje steg som egen kropp',
+  IFCFURNISHINGELEMENT: 'inredning som sällan behövs i en samordningsmodell',
+  IFCFURNITURE: 'möbler som sällan behövs i en samordningsmodell',
+  IFCBUILDINGELEMENTPROXY: 'objekt utan egen IFC-klass — ofta in-place-familjer eller importerad ' +
+                           'geometri, som brukar väga mest av allt'
+};
+
+function buildFindings(rep, diag, cfg, weigh) {
   const total = rep.bytes || 1;
   const F = [];
   const add = function (f) {
@@ -3962,6 +4240,49 @@ function buildFindings(rep, diag, cfg) {
     forlust: 'ingen',
     klar: ft === 2 || ft === 3
   });
+
+  /* --- 1b. tunga familjer och klasser: det som går att utesluta ---------- */
+  if (weigh && weigh.families && weigh.families.length) {
+    const fam = weigh.families;
+    const cls = weigh.classes || [];
+    const topFam = fam.slice(0, 5);
+    const topCls = cls[0];
+    const heavy = topFam[0];
+    /* Slår till när en handfull familjer bär en betydande del av filen, eller
+       när en enskild klass dominerar. */
+    const top5 = topFam.reduce(function (s, x) { return s + x.bytes; }, 0);
+    if (heavy && (heavy.bytes > total * 0.08 || top5 > total * 0.25)) {
+      const namn = topFam.map(function (x) {
+        return (x.family || x.cls) + ' (' + fmtNum(x.count) + ' st, ' + fmtBytes(x.bytes) + ')';
+      }).join('; ');
+      const hint = topCls && HEAVY_CLASS_HINTS[topCls.cls]
+        ? ' Tyngsta klassen är ' + topCls.cls + ' — ' + HEAVY_CLASS_HINTS[topCls.cls] + '.'
+        : '';
+      add({
+        id: 'heavy-families',
+        titel: 'Några få familjer bär större delen av filen',
+        bytes: top5,
+        sparbart: top5,
+        vad: 'Tyngst just nu: ' + namn + '.' + hint,
+        orsak: 'Vikten följer sällan antalet objekt utan hur de är modellerade. ' +
+               'Tabellen "Tyngsta objekten" nedan visar byte per objekt — en familj som väger ' +
+               'hundra gånger mer per objekt än grannarna är nästan alltid modellerad på ett sätt ' +
+               'som IFC har svårt att uttrycka kompakt.',
+        atgard: 'Ta bort det som inte behövs i den här leveransen. Tre sätt, från finkornigt till grovt:\n' +
+                '1. Gör en 3D-vy där familjen är bortfiltrerad och kryssa i "Export only elements ' +
+                'visible in view". Det är det precisa sättet och funkar på enskilda familjer och typer.\n' +
+                '2. Sätt hela Revit-kategorin till "Not Exported" i IFC-kategorimappningen, om ingen ' +
+                'del av kategorin ska med.\n' +
+                '3. Byt modelleringssätt: det som bara ska synas för samordning kan ofta vara ' +
+                'en enkel volym i stället för ett system av paneler.\n' +
+                'Vill du bara se effekten direkt kan du kryssa bort klasserna i IFC Optimizer och ' +
+                'jämföra storleken.',
+        installning: 'VisibleElementsOfCurrentView',
+        börVara: true,
+        forlust: 'ja'
+      });
+    }
+  }
 
   /* --- 2. Revits egna parametrar ---------------------------------------- */
   const revit = psetBytes(function (n, k) { return k === 'egenskaper' && isRevitPset(n); });
@@ -4481,7 +4802,7 @@ function nowMs() {
 /* --------------------------------------------------------------------------
    diagnoseBytes — analys + djupanalys + färdiga fynd
    -------------------------------------------------------------------------- */
-async function diagnoseBytes(bytes, opts, hooks, configText) {
+async function diagnoseBytes(bytes, opts, hooks, configText, weigh) {
   const h = hooks || {};
   const t0 = nowMs();
   const a = await analyseFile(bytes, opts, {
@@ -4493,7 +4814,7 @@ async function diagnoseBytes(bytes, opts, hooks, configText) {
     try { cfg = parseExportConfig(configText); }
     catch (e) { cfgError = e.message; }
   }
-  const findings = buildFindings(a.report, diag, cfg);
+  const findings = buildFindings(a.report, diag, cfg, weigh);
   return {
     report: a.report,
     diag: diag,
@@ -4598,9 +4919,20 @@ async function runDiagnosis(file, opts, configText, hooks) {
   const log = (hooks && hooks.log) || function () {};
   const limit = ((opts && opts.streamThresholdMB) || 600) * 1048576;
 
+  /* Vägningen per familj gör vi alltid — den är strömmande och klarar
+     vilken filstorlek som helst. */
+  let weigh = null;
+  try {
+    weigh = await weighByOwner(file, hooks);
+  } catch (e) {
+    log('VARNING: kunde inte väga objekten per familj: ' + e.message);
+  }
+
   if (file.size <= limit) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return await diagnoseBytes(bytes, opts, hooks, configText);
+    const res = await diagnoseBytes(bytes, opts, hooks, configText, weigh);
+    res.weigh = weigh;
+    return res;
   }
 
   log('Filen är ' + fmtBytes(file.size) + ' — för stor för att hela referensgrafen ska ' +
@@ -4614,9 +4946,9 @@ async function runDiagnosis(file, opts, configText, hooks) {
     try { cfg = parseExportConfig(configText); } catch (e) { cfgError = e.message; }
   }
   const diag = emptyDiag();
-  const findings = buildFindings(rep, diag, cfg);
+  const findings = buildFindings(rep, diag, cfg, weigh);
   return {
-    report: rep, diag: diag, findings: findings,
+    report: rep, diag: diag, findings: findings, weigh: weigh,
     summary: summariseFindings(findings, rep.bytes),
     config: cfg ? { name: cfg.name, known: cfg.known, unknown: cfg.unknown } : null,
     configError: cfgError, degraded: true, sampled: true, totalMs: 0
@@ -5012,7 +5344,7 @@ function parseExportConfig(text) {
   /* --- rapporten ---------------------------------------------------------- */
   function showReport() {
     const has = active && active.result;
-    for (const id of ['sumCard', 'findCard', 'tblCard']) $(id).style.display = has ? '' : 'none';
+    for (const id of ['sumCard', 'findCard', 'tblCard', 'weighCard']) $(id).style.display = has ? '' : 'none';
     $('cfgCard').style.display = (has && active.result.config) ? '' : 'none';
     if (!has) return;
     const R = active.result, rep = R.report, d = R.diag, s = R.summary;
@@ -5130,7 +5462,66 @@ function parseExportConfig(text) {
       box.appendChild(c);
     }
 
-    /* tabeller */
+    /* tyngsta objekten — familj för familj */
+    const W = R.weigh;
+    $('weighCard').style.display = (W && W.families && W.families.length) ? '' : 'none';
+    if (W && W.families && W.families.length) {
+      const picked = new Set();
+      const wt = $('weighTbl');
+      const maxW = W.families[0].bytes || 1;
+      const redraw = function () {
+        let sum = 0, n = 0;
+        for (const i of picked) { sum += W.families[i].bytes; n += W.families[i].count; }
+        const box = $('weighPick');
+        if (!picked.size) { box.style.display = 'none'; return; }
+        box.style.display = '';
+        box.innerHTML = '<b>' + fmtB(sum) + '</b> (' + pct(sum / rep.bytes) + ' av filen) i ' +
+          fmtN(n) + ' objekt. Utesluter du dem ur nästa export landar filen på ungefär <b>' +
+          fmtB(rep.bytes - sum) + '</b>.';
+      };
+      wt.innerHTML = '<tr><th></th><th>familj / typ</th><th>IFC-klass</th><th class="num">objekt</th>' +
+                     '<th class="num">vikt</th><th class="num">per objekt</th><th class="num">andel</th><th class="wbar"></th></tr>';
+      W.families.slice(0, 25).forEach(function (o, idx) {
+        const tr = el('tr');
+        const tdc = el('td');
+        const cb = el('input'); cb.type = 'checkbox';
+        cb.addEventListener('change', function () {
+          if (cb.checked) picked.add(idx); else picked.delete(idx);
+          redraw();
+        });
+        tdc.appendChild(cb); tr.appendChild(tdc);
+        tr.appendChild(el('td', 'name', o.family || '(namnlös)'));
+        tr.appendChild(el('td', null, o.cls));
+        tr.appendChild(el('td', 'num', fmtN(o.count)));
+        tr.appendChild(el('td', 'num', fmtB(o.bytes)));
+        tr.appendChild(el('td', 'num', fmtB(o.perObject)));
+        tr.appendChild(el('td', 'num', pct(o.bytes / rep.bytes)));
+        const td = el('td', 'wbar');
+        const b2 = el('div', 'bar2'); const ii = el('i');
+        ii.style.width = Math.max(2, Math.round(o.bytes / maxW * 100)) + '%';
+        b2.appendChild(ii); td.appendChild(b2); tr.appendChild(td);
+        wt.appendChild(tr);
+      });
+      $('weighSum').textContent = fmtN(W.families.length) + ' familjer · ' +
+        fmtB(W.unowned) + ' utan ägare';
+
+      const wc = $('weighClsTbl');
+      wc.innerHTML = '<tr><th>IFC-klass</th><th class="num">objekt</th><th class="num">familjer</th>' +
+                     '<th class="num">vikt</th><th class="num">per objekt</th><th class="num">andel</th></tr>';
+      for (const c of W.classes.slice(0, 25)) {
+        const tr = el('tr');
+        tr.appendChild(el('td', 'name', c.cls));
+        tr.appendChild(el('td', 'num', fmtN(c.count)));
+        tr.appendChild(el('td', 'num', fmtN(c.families)));
+        tr.appendChild(el('td', 'num', fmtB(c.bytes)));
+        tr.appendChild(el('td', 'num', fmtB(c.perObject)));
+        tr.appendChild(el('td', 'num', pct(c.bytes / rep.bytes)));
+        wc.appendChild(tr);
+      }
+    }
+
+    /* tabeller — bara när hela filen gick att gå igenom */
+    $('tblCard').style.display = (d.classes && d.classes.length) ? '' : 'none';
     const ct = $('classTbl');
     ct.innerHTML = '<tr><th>byggdelsklass</th><th class="num">objekt</th><th class="num">geometri</th>' +
                    '<th class="num">byte/objekt</th><th>form</th><th class="wbar"></th></tr>';

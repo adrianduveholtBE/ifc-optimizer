@@ -100,12 +100,46 @@ detaljerna.
 Optimizern åtgärdar symtomet i efterhand. Diagnosen letar upp orsaken i
 exporten, så att nästa fil blir mindre från början.
 
-Den bokför varje geometriinstans på **den byggdel och den representationsform
-som äger den** — delad geometri räknas en gång, så summan överstiger aldrig
-filen. Ur det faller tabellen som brukar avslöja allt: *byte per objekt* per
-klass. På teststommodellen väger en `IfcColumn` 232 kB och en `IfcBeam` 104 kB,
-medan en `IfcMember` väger 737 B. 885 pelare och balkar bär alltså 140 MB av
-166, för att de exporterats som BREP i stället för svepta solider.
+### Vägning per familj — strömmande, oavsett filstorlek
+
+Den viktigaste tabellen svarar på "vilken familj ska jag utesluta?" och heter
+**Tyngsta objekten**. Den räknas fram utan referensgraf och fungerar därför i
+filer på flera gigabyte.
+
+Tricket: i en IFC pekar referenser nästan alltid bakåt, mot lägre
+instansnummer — barnen skrivs före föräldern. Mätt på en Revit-modell:
+**99,97 %** av referenserna. Då räcker det att gå igenom filen *baklänges*: när
+vi möter en byggdel vet vi vem den är, och kan stämpla allt den pekar på med
+samma ägare innan vi kommer dit. Minnet blir 2 byte per instansnummer i stället
+för en hel graf, och kostnaden är två strömmande pass.
+
+Grupperingen sker på Revits eget familj- och typnamn (`IfcProduct.Name` med
+instans-id avklippt), alltså precis det man tänker i när man ska utesluta något.
+På teststommodellen:
+
+| familj / typ | objekt | vikt | per objekt |
+|---|---|---|---|
+| `Column VKR:VKR300x200x10` | 24 | 60,9 MB | **2,5 MB** |
+| `Beam VKR:VKR120x120x6.3` | 208 | 47,9 MB | 236 kB |
+| `U:U100` | 5 280 | 2,9 MB | 584 B |
+
+Två familjer, 232 objekt, 68,6 % av filen. Kryssa i rader i tabellen så räknas
+det ihop: *utesluter du dem landar filen på 49,8 MB*. Jämför med `U:U100` —
+5 280 objekt som tillsammans väger mindre än en enda VKR-pelare.
+
+Fallgrop som kostade en felsökning: `IfcRelAssignsToGroup` har också sju
+attribut där det sjunde är en referens, precis som en produkt, och eftersom
+relationer skrivs sist i filen hann de stämpla hela modellen som sin i
+bakåtpasset. `IFCREL*` utesluts därför uttryckligen.
+
+### Djupanalys när filen ryms i minnet
+
+Den bokför dessutom varje geometriinstans på **den byggdel och den
+representationsform som äger den** — delad geometri räknas en gång, så summan
+överstiger aldrig filen. Den ger *byte per objekt* per klass och per
+representationsform: `IfcColumn` 232 kB, `IfcBeam` 104 kB, `IfcMember` 737 B.
+De två metoderna är oberoende och landar inom 2 % av varandra, vilket är en
+bra kontroll.
 
 Dessutom grupperas egenskapsuppsättningarna på namn med sin verkliga kostnad
 (`Pset_MemberCommon` 1,8 MB, `Pset_QuantityTakeOff` 753 kB …), och varje fynd
@@ -121,11 +155,12 @@ och sådant som kräver ett beslut — plus en fjärde post för geometri som in
 kryssruta rår på utan som måste göras om i modellen. Posterna överlappar
 annars varandra och en enkel summa blir större än filen.
 
-Diagnosen kräver hela referensgrafen och därmed hela filen i minnet. Över
-gränsen (samma 600 MB som optimeraren) körs en förenklad diagnos: bara
-inställningarna och filens grova fördelning granskas. Ett urval av de första
-megabyten duger inte till mer — en IFC är inte homogen, geometrin ligger först
-och egenskaperna sist.
+Familjetabellen fungerar i alla filstorlekar. Den djupare analysen
+(representationsformer, Pset per namn, dubbletter) kräver hela referensgrafen
+och därmed hela filen i minnet; över gränsen (samma 600 MB som optimeraren)
+körs den förenklat. Ett urval av de första megabyten duger inte — en IFC är
+inte homogen, geometrin ligger först och egenskaperna sist, så urvalet
+innehöll noll Pset första gången jag provade.
 
 ## Struktur
 
@@ -142,6 +177,7 @@ src/engine/    motorn, en fil per steg, konkateneras i namnordning
   62-tess      svetsning av punktlistor, omslutande lådor
   70-write     omnumrering, utskrift, omläsningskontroll
   75-analyse   storleksrapport
+  66-weigh     strömmande vägning per familj (bakåtpass, 2 byte per id)
   76-advise    djupanalys: vems byten, vilken form, vad varje Pset kostar
   78-rules     fynd -> orsak -> åtgärd, kopplat till Revits kryssrutor
   80-api       körschema

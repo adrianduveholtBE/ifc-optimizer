@@ -25,10 +25,10 @@
       "type": "bullets",
       "items": [
         "De tre rutorna högst upp skiljer på **förlustfritt**, **sällan använd metadata** och **kräver ett beslut**. Börja alltid uppifrån.",
-        "Tabellen **byte per objekt** avslöjar syndarna: en klass med få objekt men hög vikt per objekt har geometri som borde ses över.",
-        "Står det **BREP** i formkolumnen betyder det att Revit inte kunde beskriva geometrin som en extrusion — vanligen in-place-familjer, importerad CAD eller många void-cuts.",
-        "Poster som **kräver modellarbete** räknas inte in i besparingen, för de försvinner inte med en kryssruta.",
-        "Filer över **600 MB** får en förenklad diagnos — då granskas bara inställningarna. Kör hellre per disciplin."
+        "**Tyngsta objekten** är tabellen du letar efter: den listar varje familj och typ med vikt och **vikt per objekt**. Några få familjer brukar bära halva filen.",
+        "Kryssa i rader i den tabellen så räknas det ihop: *utesluter du dem landar filen på X MB*.",
+        "Står det **BREP** i formkolumnen kunde Revit inte beskriva geometrin som en extrusion — vanligen in-place-familjer, importerad CAD eller många void-cuts.",
+        "Poster som **kräver modellarbete** räknas inte in i besparingen, för de försvinner inte med en kryssruta."
       ]
     },
     {
@@ -36,8 +36,10 @@
       "type": "bullets",
       "items": [
         "Verktyget ändrar aldrig filen. Ska den krympas på riktigt — använd **IFC Optimizer**, som ligger bredvid.",
-        "Avrundning av koordinater och dubbletter går inte att ställa om i Revit. De posterna åtgärdas bara av Optimizer.",
-        "Rådet **spara som zippad IFC** ligger överst av en anledning: det tar bort 85–90 procent utan att en rad information försvinner."
+        "Vägningen per familj fungerar i **alla filstorlekar**, även flera gigabyte. Den djupare analysen av geometriformer kräver att filen ryms i minnet (ca 600 MB).",
+        "Vikten i familjetabellen är objektet och dess geometri. Egenskaper redovisas separat.",
+        "Att utesluta en familj görs bäst med en **3D-vy där den är bortfiltrerad** plus *Export only elements visible in view*.",
+        "Rådet **spara som zippad IFC** ligger överst av en anledning: 85–90 procent bort utan att en rad information försvinner."
       ]
     }
   ]

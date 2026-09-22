@@ -53,9 +53,20 @@ async function runDiagnosis(file, opts, configText, hooks) {
   const log = (hooks && hooks.log) || function () {};
   const limit = ((opts && opts.streamThresholdMB) || 600) * 1048576;
 
+  /* Vägningen per familj gör vi alltid — den är strömmande och klarar
+     vilken filstorlek som helst. */
+  let weigh = null;
+  try {
+    weigh = await weighByOwner(file, hooks);
+  } catch (e) {
+    log('VARNING: kunde inte väga objekten per familj: ' + e.message);
+  }
+
   if (file.size <= limit) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return await diagnoseBytes(bytes, opts, hooks, configText);
+    const res = await diagnoseBytes(bytes, opts, hooks, configText, weigh);
+    res.weigh = weigh;
+    return res;
   }
 
   log('Filen är ' + fmtBytes(file.size) + ' — för stor för att hela referensgrafen ska ' +
@@ -69,9 +80,9 @@ async function runDiagnosis(file, opts, configText, hooks) {
     try { cfg = parseExportConfig(configText); } catch (e) { cfgError = e.message; }
   }
   const diag = emptyDiag();
-  const findings = buildFindings(rep, diag, cfg);
+  const findings = buildFindings(rep, diag, cfg, weigh);
   return {
-    report: rep, diag: diag, findings: findings,
+    report: rep, diag: diag, findings: findings, weigh: weigh,
     summary: summariseFindings(findings, rep.bytes),
     config: cfg ? { name: cfg.name, known: cfg.known, unknown: cfg.unknown } : null,
     configError: cfgError, degraded: true, sampled: true, totalMs: 0

@@ -18,7 +18,23 @@ function cfgGet(cfg, key) {
             'metadata' = du tappar information som sällan används nedströms
             'ja' = du tappar något någon kan behöva
    -------------------------------------------------------------------------- */
-function buildFindings(rep, diag, cfg) {
+/* Klasser som nästan alltid betyder "något är modellerat på ett sätt som
+   kostar mycket i IFC" när de ligger högt i viktlistan. */
+const HEAVY_CLASS_HINTS = {
+  IFCPLATE: 'paneler i curtain wall-system — undertak, fasader och glaspartier som modellerats ' +
+            'som curtain panels blir en IfcPlate per panel med egen geometri, en klassisk storlekstjuv',
+  IFCCURTAINWALL: 'curtain wall-system, där varje panel och post blir ett eget objekt',
+  IFCMEMBER: 'poster i curtain wall-system, eller reglar och strävor',
+  IFCREINFORCINGBAR: 'armeringsjärn — varje stång blir ett objekt med svept geometri',
+  IFCRAILING: 'räcken, där balusterdelningen ger extremt många små kroppar',
+  IFCSTAIR: 'trappor, ofta med varje steg som egen kropp',
+  IFCFURNISHINGELEMENT: 'inredning som sällan behövs i en samordningsmodell',
+  IFCFURNITURE: 'möbler som sällan behövs i en samordningsmodell',
+  IFCBUILDINGELEMENTPROXY: 'objekt utan egen IFC-klass — ofta in-place-familjer eller importerad ' +
+                           'geometri, som brukar väga mest av allt'
+};
+
+function buildFindings(rep, diag, cfg, weigh) {
   const total = rep.bytes || 1;
   const F = [];
   const add = function (f) {
@@ -59,6 +75,49 @@ function buildFindings(rep, diag, cfg) {
     forlust: 'ingen',
     klar: ft === 2 || ft === 3
   });
+
+  /* --- 1b. tunga familjer och klasser: det som går att utesluta ---------- */
+  if (weigh && weigh.families && weigh.families.length) {
+    const fam = weigh.families;
+    const cls = weigh.classes || [];
+    const topFam = fam.slice(0, 5);
+    const topCls = cls[0];
+    const heavy = topFam[0];
+    /* Slår till när en handfull familjer bär en betydande del av filen, eller
+       när en enskild klass dominerar. */
+    const top5 = topFam.reduce(function (s, x) { return s + x.bytes; }, 0);
+    if (heavy && (heavy.bytes > total * 0.08 || top5 > total * 0.25)) {
+      const namn = topFam.map(function (x) {
+        return (x.family || x.cls) + ' (' + fmtNum(x.count) + ' st, ' + fmtBytes(x.bytes) + ')';
+      }).join('; ');
+      const hint = topCls && HEAVY_CLASS_HINTS[topCls.cls]
+        ? ' Tyngsta klassen är ' + topCls.cls + ' — ' + HEAVY_CLASS_HINTS[topCls.cls] + '.'
+        : '';
+      add({
+        id: 'heavy-families',
+        titel: 'Några få familjer bär större delen av filen',
+        bytes: top5,
+        sparbart: top5,
+        vad: 'Tyngst just nu: ' + namn + '.' + hint,
+        orsak: 'Vikten följer sällan antalet objekt utan hur de är modellerade. ' +
+               'Tabellen "Tyngsta objekten" nedan visar byte per objekt — en familj som väger ' +
+               'hundra gånger mer per objekt än grannarna är nästan alltid modellerad på ett sätt ' +
+               'som IFC har svårt att uttrycka kompakt.',
+        atgard: 'Ta bort det som inte behövs i den här leveransen. Tre sätt, från finkornigt till grovt:\n' +
+                '1. Gör en 3D-vy där familjen är bortfiltrerad och kryssa i "Export only elements ' +
+                'visible in view". Det är det precisa sättet och funkar på enskilda familjer och typer.\n' +
+                '2. Sätt hela Revit-kategorin till "Not Exported" i IFC-kategorimappningen, om ingen ' +
+                'del av kategorin ska med.\n' +
+                '3. Byt modelleringssätt: det som bara ska synas för samordning kan ofta vara ' +
+                'en enkel volym i stället för ett system av paneler.\n' +
+                'Vill du bara se effekten direkt kan du kryssa bort klasserna i IFC Optimizer och ' +
+                'jämföra storleken.',
+        installning: 'VisibleElementsOfCurrentView',
+        börVara: true,
+        forlust: 'ja'
+      });
+    }
+  }
 
   /* --- 2. Revits egna parametrar ---------------------------------------- */
   const revit = psetBytes(function (n, k) { return k === 'egenskaper' && isRevitPset(n); });

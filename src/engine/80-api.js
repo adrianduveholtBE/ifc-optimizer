@@ -191,7 +191,7 @@ function nowMs() {
 /* --------------------------------------------------------------------------
    diagnoseBytes — analys + djupanalys + färdiga fynd
    -------------------------------------------------------------------------- */
-async function diagnoseBytes(bytes, opts, hooks, configText) {
+async function diagnoseBytes(bytes, opts, hooks, configText, weigh) {
   const h = hooks || {};
   const t0 = nowMs();
   const a = await analyseFile(bytes, opts, {
@@ -203,7 +203,7 @@ async function diagnoseBytes(bytes, opts, hooks, configText) {
     try { cfg = parseExportConfig(configText); }
     catch (e) { cfgError = e.message; }
   }
-  const findings = buildFindings(a.report, diag, cfg);
+  const findings = buildFindings(a.report, diag, cfg, weigh);
   return {
     report: a.report,
     diag: diag,

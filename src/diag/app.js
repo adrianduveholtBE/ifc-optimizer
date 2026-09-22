@@ -211,7 +211,7 @@
   /* --- rapporten ---------------------------------------------------------- */
   function showReport() {
     const has = active && active.result;
-    for (const id of ['sumCard', 'findCard', 'tblCard']) $(id).style.display = has ? '' : 'none';
+    for (const id of ['sumCard', 'findCard', 'tblCard', 'weighCard']) $(id).style.display = has ? '' : 'none';
     $('cfgCard').style.display = (has && active.result.config) ? '' : 'none';
     if (!has) return;
     const R = active.result, rep = R.report, d = R.diag, s = R.summary;
@@ -329,7 +329,66 @@
       box.appendChild(c);
     }
 
-    /* tabeller */
+    /* tyngsta objekten — familj för familj */
+    const W = R.weigh;
+    $('weighCard').style.display = (W && W.families && W.families.length) ? '' : 'none';
+    if (W && W.families && W.families.length) {
+      const picked = new Set();
+      const wt = $('weighTbl');
+      const maxW = W.families[0].bytes || 1;
+      const redraw = function () {
+        let sum = 0, n = 0;
+        for (const i of picked) { sum += W.families[i].bytes; n += W.families[i].count; }
+        const box = $('weighPick');
+        if (!picked.size) { box.style.display = 'none'; return; }
+        box.style.display = '';
+        box.innerHTML = '<b>' + fmtB(sum) + '</b> (' + pct(sum / rep.bytes) + ' av filen) i ' +
+          fmtN(n) + ' objekt. Utesluter du dem ur nästa export landar filen på ungefär <b>' +
+          fmtB(rep.bytes - sum) + '</b>.';
+      };
+      wt.innerHTML = '<tr><th></th><th>familj / typ</th><th>IFC-klass</th><th class="num">objekt</th>' +
+                     '<th class="num">vikt</th><th class="num">per objekt</th><th class="num">andel</th><th class="wbar"></th></tr>';
+      W.families.slice(0, 25).forEach(function (o, idx) {
+        const tr = el('tr');
+        const tdc = el('td');
+        const cb = el('input'); cb.type = 'checkbox';
+        cb.addEventListener('change', function () {
+          if (cb.checked) picked.add(idx); else picked.delete(idx);
+          redraw();
+        });
+        tdc.appendChild(cb); tr.appendChild(tdc);
+        tr.appendChild(el('td', 'name', o.family || '(namnlös)'));
+        tr.appendChild(el('td', null, o.cls));
+        tr.appendChild(el('td', 'num', fmtN(o.count)));
+        tr.appendChild(el('td', 'num', fmtB(o.bytes)));
+        tr.appendChild(el('td', 'num', fmtB(o.perObject)));
+        tr.appendChild(el('td', 'num', pct(o.bytes / rep.bytes)));
+        const td = el('td', 'wbar');
+        const b2 = el('div', 'bar2'); const ii = el('i');
+        ii.style.width = Math.max(2, Math.round(o.bytes / maxW * 100)) + '%';
+        b2.appendChild(ii); td.appendChild(b2); tr.appendChild(td);
+        wt.appendChild(tr);
+      });
+      $('weighSum').textContent = fmtN(W.families.length) + ' familjer · ' +
+        fmtB(W.unowned) + ' utan ägare';
+
+      const wc = $('weighClsTbl');
+      wc.innerHTML = '<tr><th>IFC-klass</th><th class="num">objekt</th><th class="num">familjer</th>' +
+                     '<th class="num">vikt</th><th class="num">per objekt</th><th class="num">andel</th></tr>';
+      for (const c of W.classes.slice(0, 25)) {
+        const tr = el('tr');
+        tr.appendChild(el('td', 'name', c.cls));
+        tr.appendChild(el('td', 'num', fmtN(c.count)));
+        tr.appendChild(el('td', 'num', fmtN(c.families)));
+        tr.appendChild(el('td', 'num', fmtB(c.bytes)));
+        tr.appendChild(el('td', 'num', fmtB(c.perObject)));
+        tr.appendChild(el('td', 'num', pct(c.bytes / rep.bytes)));
+        wc.appendChild(tr);
+      }
+    }
+
+    /* tabeller — bara när hela filen gick att gå igenom */
+    $('tblCard').style.display = (d.classes && d.classes.length) ? '' : 'none';
     const ct = $('classTbl');
     ct.innerHTML = '<tr><th>byggdelsklass</th><th class="num">objekt</th><th class="num">geometri</th>' +
                    '<th class="num">byte/objekt</th><th>form</th><th class="wbar"></th></tr>';

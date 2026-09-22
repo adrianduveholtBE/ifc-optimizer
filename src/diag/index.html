@@ -69,8 +69,24 @@
     <div id="findings"></div>
   </div>
 
+  <div class="card" id="weighCard" style="display:none">
+    <h2>4 · Tyngsta objekten — vad du kan utesluta <span class="right" id="weighSum"></span></h2>
+    <div class="hint">Vikten följer sällan antalet objekt utan <b>hur de är modellerade</b>.
+      Kolumnen <b>per objekt</b> är den som avslöjar: en familj som väger hundra gånger mer per
+      objekt än grannarna är nästan alltid modellerad på ett sätt som IFC har svårt att uttrycka
+      kompakt. Kryssa i raderna för att se vad de väger tillsammans.<br>
+      Vikten är objektet och dess geometri. Egenskaperna redovisas för sig längre ner, och
+      delad geometri bokförs på ett av objekten så att ingenting räknas två gånger.</div>
+    <table class="tbl" id="weighTbl"></table>
+    <div class="warnbox" id="weighPick" style="display:none"></div>
+    <details class="more">
+      <summary>Per IFC-klass i stället för familj</summary>
+      <table class="tbl" id="weighClsTbl"></table>
+    </details>
+  </div>
+
   <div class="card" id="tblCard" style="display:none">
-    <h2>4 · Tyngsta byggdelsklasserna</h2>
+    <h2>5 · Geometri och egenskaper i detalj</h2>
     <div class="hint">Kolumnen <b>byte per objekt</b> är den som avslöjar syndarna: en klass med få objekt
       men hög vikt per objekt har geometri som borde ses över.</div>
     <table class="tbl" id="classTbl"></table>
@@ -83,7 +99,7 @@
   </div>
 
   <div class="card" id="cfgCard" style="display:none">
-    <h2>5 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
+    <h2>6 · Dina exportinställningar <span class="right" id="cfgName"></span></h2>
     <div id="cfgBody"></div>
   </div>
 
